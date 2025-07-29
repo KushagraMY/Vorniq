@@ -1,0 +1,13 @@
+name = "0197f346-0f36-7457-8bb2-456a9982a967"
+main = "./src/worker/index.ts"
+compatibility_date = "2025-06-17"
+compatibility_flags = ["nodejs_compat"]
+upload_source_maps = true
+
+[observability]
+enabled = true
+
+[[d1_databases]]
+binding = "DB"
+database_name = "0197f346-0f36-7457-8bb2-456a9982a967"
+database_id = "4c494407-22c2-4fab-b2fc-d7b55b060cc4"

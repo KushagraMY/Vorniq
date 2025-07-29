@@ -3,135 +3,136 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { zValidator } from "@hono/zod-validator";
 import { ServiceSchema, DemoRequestSchema, SubscriptionSchema, PaymentSchema, PaymentWebhookSchema } from "../shared/types";
-import type { D1Database } from '@cloudflare/workers-types';
-// Add import for D1Database if available
-// D1Database is provided by the Cloudflare Workers runtime
+import pool from './db';
 
-type Bindings = {
-  DB: D1Database;
-  RAZORPAY_KEY_ID: string;
-  RAZORPAY_KEY_SECRET: string;
-};
-
-const app = new Hono<{ Bindings: Bindings }>();
+const app = new Hono();
 
 app.use("*", cors());
 
 // Services endpoints
 app.get("/api/services", async (c) => {
-  const result = await (c.env.DB as D1Database).prepare("SELECT * FROM services ORDER BY id").all();
-  return c.json(result.results);
+  const result = await pool.query("SELECT * FROM services ORDER BY id");
+  return c.json(result.rows);
 });
 
 app.post("/api/services", zValidator("json", ServiceSchema.omit({ id: true })), async (c) => {
   const data = c.req.valid("json");
-  const result = await (c.env.DB as D1Database).prepare(
-    "INSERT INTO services (name, description, price_monthly, icon, features) VALUES (?, ?, ?, ?, ?)"
-  ).bind(data.name, data.description, data.price_monthly, data.icon, data.features).run();
-  return c.json({ id: result.meta.last_row_id, ...data });
+  const result = await pool.query(
+    "INSERT INTO services (name, description, price_monthly, icon, features) VALUES ($1, $2, $3, $4, $5) RETURNING id",
+    [data.name, data.description, data.price_monthly, data.icon, data.features]
+  );
+  return c.json({ id: result.rows[0].id, ...data });
 });
 
 // Demo request endpoint
 app.post("/api/demo-request", zValidator("json", DemoRequestSchema), async (c) => {
   const data = c.req.valid("json");
-  const result = await (c.env.DB as D1Database).prepare(
-    "INSERT INTO demo_requests (name, email, company, phone, message) VALUES (?, ?, ?, ?, ?)"
-  ).bind(data.name, data.email, data.company, data.phone, data.message).run();
-  return c.json({ id: result.meta.last_row_id, ...data });
+  const result = await pool.query(
+    "INSERT INTO demo_requests (name, email, company, phone, message) VALUES ($1, $2, $3, $4, $5) RETURNING id",
+    [data.name, data.email, data.company, data.phone, data.message]
+  );
+  return c.json({ id: result.rows[0].id, ...data });
 });
 
 // CRM endpoints
 app.get("/api/crm/customers", async (c) => {
-  const result = await (c.env.DB as D1Database).prepare("SELECT * FROM customers ORDER BY created_at DESC").all();
-  return c.json(result.results);
+  const result = await pool.query("SELECT * FROM customers ORDER BY created_at DESC");
+  return c.json(result.rows);
 });
 
 app.post("/api/crm/customers", async (c) => {
   const data = await c.req.json();
-  const result = await (c.env.DB as D1Database).prepare(
-    "INSERT INTO customers (name, email, phone, company, job_title, address, city, country, website, source, tags, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
-  ).bind(data.name, data.email, data.phone, data.company, data.job_title, data.address, data.city, data.country, data.website, data.source, data.tags, data.notes).run();
-  return c.json({ id: result.meta.last_row_id, ...data });
+  const result = await pool.query(
+    "INSERT INTO customers (name, email, phone, company, job_title, address, city, country, website, source, tags, notes) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING id",
+    [data.name, data.email, data.phone, data.company, data.job_title, data.address, data.city, data.country, data.website, data.source, data.tags, data.notes]
+  );
+  return c.json({ id: result.rows[0].id, ...data });
 });
 
 app.get("/api/crm/leads", async (c) => {
-  const result = await (c.env.DB as D1Database).prepare("SELECT * FROM leads ORDER BY created_at DESC").all();
-  return c.json(result.results);
+  const result = await pool.query("SELECT * FROM leads ORDER BY created_at DESC");
+  return c.json(result.rows);
 });
 
 app.post("/api/crm/leads", async (c) => {
   const data = await c.req.json();
-  const result = await (c.env.DB as D1Database).prepare(
-    "INSERT INTO leads (name, email, phone, company, job_title, source, value, probability, stage, assigned_to, customer_id, next_follow_up, tags, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
-  ).bind(data.name, data.email, data.phone, data.company, data.job_title, data.source, data.value, data.probability, data.stage, data.assigned_to, data.customer_id, data.next_follow_up, data.tags, data.notes).run();
-  return c.json({ id: result.meta.last_row_id, ...data });
+  const result = await pool.query(
+    "INSERT INTO leads (name, email, phone, company, job_title, source, value, probability, stage, assigned_to, customer_id, next_follow_up, tags, notes) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) RETURNING id",
+    [data.name, data.email, data.phone, data.company, data.job_title, data.source, data.value, data.probability, data.stage, data.assigned_to, data.customer_id, data.next_follow_up, data.tags, data.notes]
+  );
+  return c.json({ id: result.rows[0].id, ...data });
 });
 
 // HRM endpoints
 app.get("/api/hrm/employees", async (c) => {
-  const result = await (c.env.DB as D1Database).prepare("SELECT * FROM employees ORDER BY created_at DESC").all();
-  return c.json(result.results);
+  const result = await pool.query("SELECT * FROM employees ORDER BY created_at DESC");
+  return c.json(result.rows);
 });
 
 app.post("/api/hrm/employees", async (c) => {
   const data = await c.req.json();
-  const result = await (c.env.DB as D1Database).prepare(
-    "INSERT INTO employees (employee_id, first_name, last_name, email, phone, date_of_birth, hire_date, department, position, salary, employment_type, status, manager_id, address, emergency_contact_name, emergency_contact_phone, photo_url) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
-  ).bind(data.employee_id, data.first_name, data.last_name, data.email, data.phone, data.date_of_birth, data.hire_date, data.department, data.position, data.salary, data.employment_type, data.status, data.manager_id, data.address, data.emergency_contact_name, data.emergency_contact_phone, data.photo_url).run();
-  return c.json({ id: result.meta.last_row_id, ...data });
+  const result = await pool.query(
+    "INSERT INTO employees (employee_id, first_name, last_name, email, phone, date_of_birth, hire_date, department, position, salary, employment_type, status, manager_id, address, emergency_contact_name, emergency_contact_phone, photo_url) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17) RETURNING id",
+    [data.employee_id, data.first_name, data.last_name, data.email, data.phone, data.date_of_birth, data.hire_date, data.department, data.position, data.salary, data.employment_type, data.status, data.manager_id, data.address, data.emergency_contact_name, data.emergency_contact_phone, data.photo_url]
+  );
+  return c.json({ id: result.rows[0].id, ...data });
 });
 
 app.get("/api/hrm/attendance", async (c) => {
-  const result = await (c.env.DB as D1Database).prepare("SELECT * FROM attendance ORDER BY date DESC").all();
-  return c.json(result.results);
+  const result = await pool.query("SELECT * FROM attendance ORDER BY date DESC");
+  return c.json(result.rows);
 });
 
 app.post("/api/hrm/attendance", async (c) => {
   const data = await c.req.json();
-  const result = await (c.env.DB as D1Database).prepare(
-    "INSERT INTO attendance (employee_id, date, clock_in_time, clock_out_time, break_duration_minutes, total_hours, status, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
-  ).bind(data.employee_id, data.date, data.clock_in_time, data.clock_out_time, data.break_duration_minutes, data.total_hours, data.status, data.notes).run();
-  return c.json({ id: result.meta.last_row_id, ...data });
+  const result = await pool.query(
+    "INSERT INTO attendance (employee_id, date, clock_in_time, clock_out_time, break_duration_minutes, total_hours, status, notes) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id",
+    [data.employee_id, data.date, data.clock_in_time, data.clock_out_time, data.break_duration_minutes, data.total_hours, data.status, data.notes]
+  );
+  return c.json({ id: result.rows[0].id, ...data });
 });
 
 // SIM endpoints
 app.get("/api/sim/products", async (c) => {
-  const result = await (c.env.DB as D1Database).prepare("SELECT * FROM products ORDER BY created_at DESC").all();
-  return c.json(result.results);
+  const result = await pool.query("SELECT * FROM products ORDER BY created_at DESC");
+  return c.json(result.rows);
 });
 
 app.post("/api/sim/products", async (c) => {
   const data = await c.req.json();
-  const result = await (c.env.DB as D1Database).prepare(
-    "INSERT INTO products (name, description, category, sku, price, cost_price, stock_quantity, min_stock_level, max_stock_level, unit_of_measure, is_active, supplier_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
-  ).bind(data.name, data.description, data.category, data.sku, data.price, data.cost_price, data.stock_quantity, data.min_stock_level, data.max_stock_level, data.unit_of_measure, data.is_active, data.supplier_id).run();
-  return c.json({ id: result.meta.last_row_id, ...data });
+  const result = await pool.query(
+    "INSERT INTO products (name, description, category, sku, price, cost_price, stock_quantity, min_stock_level, max_stock_level, unit_of_measure, is_active, supplier_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING id",
+    [data.name, data.description, data.category, data.sku, data.price, data.cost_price, data.stock_quantity, data.min_stock_level, data.max_stock_level, data.unit_of_measure, data.is_active, data.supplier_id]
+  );
+  return c.json({ id: result.rows[0].id, ...data });
 });
 
 app.get("/api/sim/quotations", async (c) => {
-  const result = await (c.env.DB as D1Database).prepare("SELECT * FROM quotations ORDER BY created_at DESC").all();
-  return c.json(result.results);
+  const result = await pool.query("SELECT * FROM quotations ORDER BY created_at DESC");
+  return c.json(result.rows);
 });
 
 app.post("/api/sim/quotations", async (c) => {
   const data = await c.req.json();
-  const result = await (c.env.DB as D1Database).prepare(
-    "INSERT INTO quotations (quote_number, customer_id, customer_name, customer_email, customer_phone, quote_date, valid_until, subtotal, tax_amount, discount_amount, total_amount, status, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
-  ).bind(data.quote_number, data.customer_id, data.customer_name, data.customer_email, data.customer_phone, data.quote_date, data.valid_until, data.subtotal, data.tax_amount, data.discount_amount, data.total_amount, data.status, data.notes).run();
-  return c.json({ id: result.meta.last_row_id, ...data });
+  const result = await pool.query(
+    "INSERT INTO quotations (quote_number, customer_id, customer_name, customer_email, customer_phone, quote_date, valid_until, subtotal, tax_amount, discount_amount, total_amount, status, notes) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) RETURNING id",
+    [data.quote_number, data.customer_id, data.customer_name, data.customer_email, data.customer_phone, data.quote_date, data.valid_until, data.subtotal, data.tax_amount, data.discount_amount, data.total_amount, data.status, data.notes]
+  );
+  return c.json({ id: result.rows[0].id, ...data });
 });
 
 app.get("/api/sim/invoices", async (c) => {
-  const result = await (c.env.DB as D1Database).prepare("SELECT * FROM invoices ORDER BY created_at DESC").all();
-  return c.json(result.results);
+  const result = await pool.query("SELECT * FROM invoices ORDER BY created_at DESC");
+  return c.json(result.rows);
 });
 
 app.post("/api/sim/invoices", async (c) => {
   const data = await c.req.json();
-  const result = await (c.env.DB as D1Database).prepare(
-    "INSERT INTO invoices (invoice_number, customer_id, customer_name, customer_email, customer_phone, customer_address, invoice_date, due_date, subtotal, tax_amount, discount_amount, total_amount, paid_amount, status, payment_status, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
-  ).bind(data.invoice_number, data.customer_id, data.customer_name, data.customer_email, data.customer_phone, data.customer_address, data.invoice_date, data.due_date, data.subtotal, data.tax_amount, data.discount_amount, data.total_amount, data.paid_amount, data.status, data.payment_status, data.notes).run();
-  return c.json({ id: result.meta.last_row_id, ...data });
+  const result = await pool.query(
+    "INSERT INTO invoices (invoice_number, customer_id, customer_name, customer_email, customer_phone, customer_address, invoice_date, due_date, subtotal, tax_amount, discount_amount, total_amount, paid_amount, status, payment_status, notes) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16) RETURNING id",
+    [data.invoice_number, data.customer_id, data.customer_name, data.customer_email, data.customer_phone, data.customer_address, data.invoice_date, data.due_date, data.subtotal, data.tax_amount, data.discount_amount, data.total_amount, data.paid_amount, data.status, data.payment_status, data.notes]
+  );
+  return c.json({ id: result.rows[0].id, ...data });
 });
 
 // Dashboard & Reports endpoints
@@ -220,15 +221,16 @@ app.get("/api/dashboard/hr-data", async (c) => {
 
 app.post("/api/reports/generate", async (c) => {
   const data = await c.req.json();
-  const result = await (c.env.DB as D1Database).prepare(
-    "INSERT INTO reports (name, type, format, parameters, status, generated_by) VALUES (?, ?, ?, ?, ?, ?)"
-  ).bind(data.name, data.type, data.format, JSON.stringify(data.parameters), 'completed', data.generatedBy || 'System').run();
-  return c.json({ id: result.meta.last_row_id, status: 'completed' });
+  const result = await pool.query(
+    "INSERT INTO reports (name, type, format, parameters, status, generated_by) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id",
+    [data.name, data.type, data.format, JSON.stringify(data.parameters), 'completed', data.generatedBy || 'System']
+  );
+  return c.json({ id: result.rows[0].id, status: 'completed' });
 });
 
 app.get("/api/reports", async (c) => {
-  const result = await (c.env.DB as D1Database).prepare("SELECT * FROM reports ORDER BY created_at DESC LIMIT 20").all();
-  return c.json(result.results);
+  const result = await pool.query("SELECT * FROM reports ORDER BY created_at DESC LIMIT 20");
+  return c.json(result.rows);
 });
 
 // User Roles & Access Control endpoints
@@ -313,91 +315,90 @@ app.get("/api/permissions", async (c) => {
 
 // Accounting endpoints
 app.get("/api/accounting/income-records", async (c) => {
-  const result = await (c.env.DB as D1Database).prepare("SELECT * FROM income_records ORDER BY created_at DESC").all();
-  return c.json(result.results);
+  const result = await pool.query("SELECT * FROM income_records ORDER BY created_at DESC");
+  return c.json(result.rows);
 });
 
 app.post("/api/accounting/income-records", async (c) => {
   const data = await c.req.json();
-  const result = await (c.env.DB as D1Database).prepare(
-    "INSERT INTO income_records (customer_name, invoice_number, income_category, amount, tax_amount, net_amount, payment_method, payment_date, payment_status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
-  ).bind(data.customer_name, data.invoice_number, data.income_category, data.amount, data.tax_amount, data.net_amount, data.payment_method, data.payment_date, data.payment_status).run();
-  
-  return c.json({ id: result.meta.last_row_id, ...data });
+  const result = await pool.query(
+    "INSERT INTO income_records (customer_name, invoice_number, income_category, amount, tax_amount, net_amount, payment_method, payment_date, payment_status) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id",
+    [data.customer_name, data.invoice_number, data.income_category, data.amount, data.tax_amount, data.net_amount, data.payment_method, data.payment_date, data.payment_status]
+  );
+  return c.json({ id: result.rows[0].id, ...data });
 });
 
 app.get("/api/accounting/expense-records", async (c) => {
-  const result = await (c.env.DB as D1Database).prepare("SELECT * FROM expense_records ORDER BY created_at DESC").all();
-  return c.json(result.results);
+  const result = await pool.query("SELECT * FROM expense_records ORDER BY created_at DESC");
+  return c.json(result.rows);
 });
 
 app.post("/api/accounting/expense-records", async (c) => {
   const data = await c.req.json();
-  const result = await (c.env.DB as D1Database).prepare(
-    "INSERT INTO expense_records (vendor_name, expense_category, amount, tax_amount, net_amount, receipt_url, expense_date, payment_method, payment_status, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
-  ).bind(data.vendor_name, data.expense_category, data.amount, data.tax_amount, data.net_amount, data.receipt_url, data.expense_date, data.payment_method, data.payment_status, data.notes).run();
-  
-  return c.json({ id: result.meta.last_row_id, ...data });
+  const result = await pool.query(
+    "INSERT INTO expense_records (vendor_name, expense_category, amount, tax_amount, net_amount, receipt_url, expense_date, payment_method, payment_status, notes) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id",
+    [data.vendor_name, data.expense_category, data.amount, data.tax_amount, data.net_amount, data.receipt_url, data.expense_date, data.payment_method, data.payment_status, data.notes]
+  );
+  return c.json({ id: result.rows[0].id, ...data });
 });
 
 app.get("/api/accounting/payment-reminders", async (c) => {
-  const result = await (c.env.DB as D1Database).prepare("SELECT * FROM payment_reminders ORDER BY due_date ASC").all();
-  return c.json(result.results);
+  const result = await pool.query("SELECT * FROM payment_reminders ORDER BY due_date ASC");
+  return c.json(result.rows);
 });
 
 app.post("/api/accounting/payment-reminders", async (c) => {
   const data = await c.req.json();
-  const result = await (c.env.DB as D1Database).prepare(
-    "INSERT INTO payment_reminders (type, reference_type, reference_id, customer_vendor_name, amount, due_date, reminder_date, status, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
-  ).bind(data.type, data.reference_type, data.reference_id, data.customer_vendor_name, data.amount, data.due_date, data.reminder_date, data.status, data.notes).run();
-  
-  return c.json({ id: result.meta.last_row_id, ...data });
+  const result = await pool.query(
+    "INSERT INTO payment_reminders (type, reference_type, reference_id, customer_vendor_name, amount, due_date, reminder_date, status, notes) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id",
+    [data.type, data.reference_type, data.reference_id, data.customer_vendor_name, data.amount, data.due_date, data.reminder_date, data.status, data.notes]
+  );
+  return c.json({ id: result.rows[0].id, ...data });
 });
 
 app.get("/api/accounting/bank-accounts", async (c) => {
-  const result = await (c.env.DB as D1Database).prepare("SELECT * FROM bank_accounts WHERE is_active = 1").all();
-  return c.json(result.results);
+  const result = await pool.query("SELECT * FROM bank_accounts WHERE is_active = 1");
+  return c.json(result.rows);
 });
 
 app.post("/api/accounting/bank-accounts", async (c) => {
   const data = await c.req.json();
-  const result = await (c.env.DB as D1Database).prepare(
-    "INSERT INTO bank_accounts (account_name, account_number, bank_name, account_type, current_balance) VALUES (?, ?, ?, ?, ?)"
-  ).bind(data.account_name, data.account_number, data.bank_name, data.account_type, data.current_balance).run();
-  
-  return c.json({ id: result.meta.last_row_id, ...data });
+  const result = await pool.query(
+    "INSERT INTO bank_accounts (account_name, account_number, bank_name, account_type, current_balance) VALUES ($1, $2, $3, $4, $5) RETURNING id",
+    [data.account_name, data.account_number, data.bank_name, data.account_type, data.current_balance]
+  );
+  return c.json({ id: result.rows[0].id, ...data });
 });
 
 app.get("/api/accounting/bank-transactions", async (c) => {
-  const result = await (c.env.DB as D1Database).prepare("SELECT * FROM bank_transactions ORDER BY transaction_date DESC").all();
-  return c.json(result.results);
+  const result = await pool.query("SELECT * FROM bank_transactions ORDER BY transaction_date DESC");
+  return c.json(result.rows);
 });
 
 app.post("/api/accounting/bank-transactions", async (c) => {
   const data = await c.req.json();
-  const result = await (c.env.DB as D1Database).prepare(
-    "INSERT INTO bank_transactions (bank_account_id, transaction_date, description, reference_number, amount, transaction_type, balance_after) VALUES (?, ?, ?, ?, ?, ?, ?)"
-  ).bind(data.bank_account_id, data.transaction_date, data.description, data.reference_number, data.amount, data.transaction_type, data.balance_after).run();
-  
-  return c.json({ id: result.meta.last_row_id, ...data });
+  const result = await pool.query(
+    "INSERT INTO bank_transactions (bank_account_id, transaction_date, description, reference_number, amount, transaction_type, balance_after) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id",
+    [data.bank_account_id, data.transaction_date, data.description, data.reference_number, data.amount, data.transaction_type, data.balance_after]
+  );
+  return c.json({ id: result.rows[0].id, ...data });
 });
 
 app.get("/api/accounting/tax-settings", async (c) => {
-  const result = await (c.env.DB as D1Database).prepare("SELECT * FROM tax_settings WHERE is_active = 1").all();
-  return c.json(result.results);
+  const result = await pool.query("SELECT * FROM tax_settings WHERE is_active = 1");
+  return c.json(result.rows);
 });
 
 app.post("/api/accounting/tax-settings", async (c) => {
   const data = await c.req.json();
-  const result = await (c.env.DB as D1Database).prepare(
-    "INSERT INTO tax_settings (tax_name, tax_rate, tax_type) VALUES (?, ?, ?)"
-  ).bind(data.tax_name, data.tax_rate, data.tax_type).run();
-  
-  return c.json({ id: result.meta.last_row_id, ...data });
+  const result = await pool.query(
+    "INSERT INTO tax_settings (tax_name, tax_rate, tax_type) VALUES ($1, $2, $3) RETURNING id",
+    [data.tax_name, data.tax_rate, data.tax_type]
+  );
+  return c.json({ id: result.rows[0].id, ...data });
 });
 
 app.get("/api/accounting/profit-loss", async (c) => {
-  
   // Mock P&L data - in real app, this would calculate from actual transactions
   const plData = {
     period: 'January 2024',
@@ -423,7 +424,6 @@ app.get("/api/accounting/profit-loss", async (c) => {
       'Miscellaneous': 5000
     }
   };
-  
   return c.json(plData);
 });
 
@@ -436,15 +436,15 @@ app.get("/api/subscription/status", async (c) => {
       subscribedServices: [],
     });
   }
-  const result = await (c.env.DB as D1Database)
-    .prepare("SELECT * FROM subscriptions WHERE user_id = ? AND status = 'active' ORDER BY id DESC LIMIT 1")
-    .bind(userEmail)
-    .all();
+  const result = await pool.query(
+    "SELECT * FROM subscriptions WHERE user_id = $1 AND status = 'active' ORDER BY id DESC LIMIT 1",
+    [userEmail]
+  );
 
-  if (result.results.length > 0) {
+  if (result.rows.length > 0) {
     let serviceIds: number[] = [];
     try {
-      serviceIds = JSON.parse(result.results[0].service_ids as string);
+      serviceIds = JSON.parse(result.rows[0].service_ids as string);
     } catch {
       serviceIds = [];
     }
@@ -463,13 +463,12 @@ app.get("/api/subscription/status", async (c) => {
 // Updated subscribe endpoint
 app.post("/api/subscribe", zValidator("json", SubscriptionSchema), async (c) => {
   const data = c.req.valid("json");
-  // Create order in Razorpay
   const orderId = `order_${Date.now()}`;
   const amount = data.totalPrice * 100; // Convert to paise
-  // Store subscription request in database
-  await (c.env.DB as D1Database).prepare(
-    "INSERT INTO subscriptions (service_ids, total_price, subscription_type, status, razorpay_order_id) VALUES (?, ?, ?, ?, ?)"
-  ).bind(JSON.stringify(data.serviceIds), data.totalPrice, data.subscriptionType, 'created', orderId).run();
+  await pool.query(
+    "INSERT INTO subscriptions (service_ids, total_price, subscription_type, status, razorpay_order_id) VALUES ($1, $2, $3, $4, $5)",
+    [JSON.stringify(data.serviceIds), data.totalPrice, data.subscriptionType, 'created', orderId]
+  );
   return c.json({
     orderId,
     amount,
@@ -482,14 +481,12 @@ app.post("/api/subscribe", zValidator("json", SubscriptionSchema), async (c) => 
 // Payment endpoints
 app.post("/api/create-order", zValidator("json", SubscriptionSchema), async (c) => {
   const data = c.req.valid("json");
-  
-  // Create order in database
-  const result = await (c.env.DB as D1Database).prepare(
-    "INSERT INTO payments (razorpay_order_id, amount, currency, status) VALUES (?, ?, ?, ?)"
-  ).bind(`order_${Date.now()}`, data.totalPrice * 100, "INR", "created").run();
-  
+  const result = await pool.query(
+    "INSERT INTO payments (razorpay_order_id, amount, currency, status) VALUES ($1, $2, $3, $4) RETURNING id",
+    [`order_${Date.now()}`, data.totalPrice * 100, "INR", "created"]
+  );
   return c.json({
-    id: result.meta.last_row_id,
+    id: result.rows[0].id,
     amount: data.totalPrice * 100,
     currency: "INR",
     receipt: `receipt_${Date.now()}`,
@@ -498,53 +495,29 @@ app.post("/api/create-order", zValidator("json", SubscriptionSchema), async (c) 
 
 app.post("/api/verify-payment", zValidator("json", PaymentSchema), async (c) => {
   const data = c.req.valid("json");
-  // Update payment status
-  await (c.env.DB as D1Database).prepare(
-    "UPDATE payments SET razorpay_payment_id = ?, razorpay_signature = ?, status = ? WHERE razorpay_order_id = ?"
-  ).bind(data.razorpay_payment_id, data.razorpay_signature, "completed", data.razorpay_order_id).run();
-  // Update subscription status to active
-  await (c.env.DB as D1Database).prepare(
-    "UPDATE subscriptions SET status = ? WHERE razorpay_order_id = ?"
-  ).bind('active', data.razorpay_order_id).run();
+  await pool.query(
+    "UPDATE payments SET razorpay_payment_id = $1, razorpay_signature = $2, status = $3 WHERE razorpay_order_id = $4",
+    [data.razorpay_payment_id, data.razorpay_signature, "completed", data.razorpay_order_id]
+  );
+  await pool.query(
+    "UPDATE subscriptions SET status = $1 WHERE razorpay_order_id = $2",
+    ['active', data.razorpay_order_id]
+  );
   return c.json({ success: true });
 });
 
 app.post("/api/webhook", zValidator("json", PaymentWebhookSchema), async (c) => {
   const data = c.req.valid("json");
-  
-  // Store webhook data
-  await (c.env.DB as D1Database).prepare(
-    "INSERT INTO payment_webhooks (event_type, razorpay_payment_id, webhook_body, processed) VALUES (?, ?, ?, ?)"
-  ).bind(data.event, data.payload.payment.entity.id, JSON.stringify(data), false).run();
-  
+  await pool.query(
+    "INSERT INTO payment_webhooks (event_type, razorpay_payment_id, webhook_body, processed) VALUES ($1, $2, $3, $4)",
+    [data.event, data.payload.payment.entity.id, JSON.stringify(data), false]
+  );
   return c.json({ success: true });
 });
 
 // Serve static assets from the production build output
 app.use("/assets/*", serveStatic({ root: "./dist/client", manifest: {} }));
 
-// Catch-all for SPA routing: serve the built index.html from dist
-app.get("*", async (c) => {
-  // @ts-expect-error: URL is available in globalThis in Cloudflare Workers.
-  const url = new globalThis.URL(c.req.url);
-  if (/\.[a-zA-Z0-9]+$/.test(url.pathname.split("/").pop() || "")) {
-    return c.notFound();
-  }
-  // Fallback: serve inline HTML (ensure asset paths match dist)
-  return c.html(`<!DOCTYPE html>
-    <html lang="en">
-      <head>
-        <meta charset="UTF-8" />
-        <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>VorniQ - Enterprise Resource Planning</title>
-        <script type="module" crossorigin src="/assets/index-CHQfKOxE.js"></script>
-        <link rel="stylesheet" crossorigin href="/assets/index-BScpfbCK.css">
-      </head>
-      <body>
-        <div id="root"></div>
-      </body>
-    </html>`);
-});
-
 export default app;
+
+
