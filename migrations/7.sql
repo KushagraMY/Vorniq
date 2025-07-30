@@ -1,1 +1,0 @@
--- This migration is intentionally left blank. All supplier columns are now created in migrations/8.sql.
