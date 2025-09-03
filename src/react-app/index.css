@@ -1,0 +1,20 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+  --color-primary: #3A2496;
+  --color-accent: #7B3A7E;
+  --color-background: #FFFFFF;
+  --color-background-light: #F7F7FA;
+  --gradient-primary-accent: linear-gradient(90deg, #3A2496 0%, #7B3A7E 100%);
+}
+
+@keyframes shine {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+.shiny-gradient .shine-effect {
+  animation: shine 2.5s infinite linear;
+}
