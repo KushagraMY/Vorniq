@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { UserPlus, Plus, Search, Filter, Eye, Edit, Trash2, Mail, Phone, Building, Target, Calendar } from 'lucide-react';
+import { UserPlus, Plus, Search, Eye, Edit, Trash2, Mail, Phone, Building, Calendar } from 'lucide-react';
 import { supabase } from '../../supabaseClient';
 
 interface Lead {
@@ -28,7 +28,6 @@ export default function LeadManagement() {
   const [searchTerm, setSearchTerm] = useState('');
   const [stageFilter, setStageFilter] = useState('all');
   const [sourceFilter, setSourceFilter] = useState('all');
-  const [showAddModal, setShowAddModal] = useState(false);
 
   useEffect(() => {
     fetchLeads();
@@ -116,7 +115,6 @@ export default function LeadManagement() {
           <p className="text-gray-600">Track and manage your sales leads through the pipeline</p>
         </div>
         <button
-          onClick={() => setShowAddModal(true)}
           className="bg-primary hover:bg-primary-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
         >
           <Plus size={20} />

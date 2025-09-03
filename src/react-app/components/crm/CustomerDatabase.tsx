@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Users, Plus, Search, Filter, Eye, Edit, Trash2, Mail, Phone, Globe, MapPin } from 'lucide-react';
+import { Users, Plus, Search, Eye, Edit, Trash2, Mail, Phone, Globe, MapPin } from 'lucide-react';
 import { supabase } from '../../supabaseClient';
 
 interface Customer {
@@ -25,7 +25,6 @@ export default function CustomerDatabase() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [sourceFilter, setSourceFilter] = useState('all');
-  const [showAddModal, setShowAddModal] = useState(false);
 
   useEffect(() => {
     fetchCustomers();
@@ -92,7 +91,6 @@ export default function CustomerDatabase() {
           <p className="text-gray-600">Manage your customer relationships and information</p>
         </div>
         <button
-          onClick={() => setShowAddModal(true)}
           className="bg-primary hover:bg-primary-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
         >
           <Plus size={20} />

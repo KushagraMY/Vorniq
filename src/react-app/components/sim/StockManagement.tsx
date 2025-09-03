@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Package, TrendingUp, TrendingDown, AlertTriangle, Plus, Search, Filter, Eye, Edit, Trash2 } from 'lucide-react';
+import { Package, TrendingUp, TrendingDown, AlertTriangle, Plus, Search, Eye, Edit, Trash2 } from 'lucide-react';
 import { supabase } from '../../supabaseClient';
 
 interface StockMovement {
@@ -41,7 +41,6 @@ export default function StockManagement() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [movementTypeFilter, setMovementTypeFilter] = useState('all');
-  const [showAddModal, setShowAddModal] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -172,7 +171,6 @@ export default function StockManagement() {
           <p className="text-gray-600">Monitor stock movements and manage inventory alerts</p>
         </div>
         <button
-          onClick={() => setShowAddModal(true)}
           className="bg-primary hover:bg-primary-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
         >
           <Plus size={20} />

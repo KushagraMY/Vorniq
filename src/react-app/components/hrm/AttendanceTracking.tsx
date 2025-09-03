@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Clock, Plus, Search, Filter, Eye, Edit, Trash2, Calendar, Users, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
+import { Clock, Plus, Search, Eye, Edit, Trash2, Calendar, Users, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
 import { supabase } from '../../supabaseClient';
 
 interface Attendance {
@@ -26,7 +26,6 @@ export default function AttendanceTracking() {
   const [searchTerm, setSearchTerm] = useState('');
   const [dateFilter, setDateFilter] = useState(new Date().toISOString().split('T')[0]);
   const [statusFilter, setStatusFilter] = useState('all');
-  const [showAddModal, setShowAddModal] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -154,7 +153,6 @@ export default function AttendanceTracking() {
           <p className="text-gray-600">Monitor employee attendance and time tracking</p>
         </div>
         <button
-          onClick={() => setShowAddModal(true)}
           className="bg-primary hover:bg-primary-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
         >
           <Plus size={20} />

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { FileText, Plus, Search, Filter, Eye, Edit, Trash2, Download, Send, Check, Clock } from 'lucide-react';
+import { FileText, Plus, Search, Eye, Edit, Trash2, Download, Send, Check, Clock } from 'lucide-react';
 import { supabase } from '../../supabaseClient';
 
 interface Invoice {
@@ -28,7 +28,6 @@ export default function InvoiceManagement() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [paymentFilter, setPaymentFilter] = useState('all');
-  const [showAddModal, setShowAddModal] = useState(false);
 
   useEffect(() => {
     fetchInvoices();
@@ -123,7 +122,6 @@ export default function InvoiceManagement() {
           <p className="text-gray-600">Create and manage customer invoices</p>
         </div>
         <button
-          onClick={() => setShowAddModal(true)}
           className="bg-primary hover:bg-primary-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
         >
           <Plus size={20} />

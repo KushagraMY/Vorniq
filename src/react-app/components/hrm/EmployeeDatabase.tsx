@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Users, Plus, Search, Filter, Eye, Edit, Trash2, Mail, Phone, Building, Calendar, DollarSign } from 'lucide-react';
+import { Users, Plus, Search, Eye, Edit, Trash2, Mail, Phone, Building, Calendar, DollarSign } from 'lucide-react';
 import { supabase } from '../../supabaseClient';
 
 interface Employee {
@@ -24,7 +24,6 @@ export default function EmployeeDatabase() {
   const [searchTerm, setSearchTerm] = useState('');
   const [departmentFilter, setDepartmentFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [showAddModal, setShowAddModal] = useState(false);
 
   useEffect(() => {
     fetchEmployees();
@@ -112,7 +111,6 @@ export default function EmployeeDatabase() {
           <p className="text-gray-600">Manage your workforce and employee information</p>
         </div>
         <button
-          onClick={() => setShowAddModal(true)}
           className="bg-primary hover:bg-primary-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
         >
           <Plus size={20} />

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { FileText, Plus, Search, Filter, Eye, Edit, Trash2, Send, Check, X } from 'lucide-react';
+import { FileText, Plus, Search, Eye, Edit, Trash2, Send, Check, X } from 'lucide-react';
 import { supabase } from '../../supabaseClient';
 
 interface Quotation {
@@ -24,7 +24,6 @@ export default function QuotationManagement() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [showAddModal, setShowAddModal] = useState(false);
 
   useEffect(() => {
     fetchQuotations();
@@ -108,7 +107,6 @@ export default function QuotationManagement() {
           <p className="text-gray-600">Create and manage customer quotations</p>
         </div>
         <button
-          onClick={() => setShowAddModal(true)}
           className="bg-primary hover:bg-primary-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
         >
           <Plus size={20} />

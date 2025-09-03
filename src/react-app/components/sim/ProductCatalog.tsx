@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Package, Plus, Search, Filter, Edit, Trash2, Eye } from 'lucide-react';
+import { Package, Plus, Search, Edit, Trash2, Eye } from 'lucide-react';
 import { supabase } from '../../supabaseClient';
 
 interface Product {
@@ -24,7 +24,6 @@ export default function ProductCatalog() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
-  const [showAddModal, setShowAddModal] = useState(false);
 
   useEffect(() => {
     fetchProducts();
@@ -91,7 +90,6 @@ export default function ProductCatalog() {
           <p className="text-gray-600">Manage your product inventory and catalog</p>
         </div>
         <button
-          onClick={() => setShowAddModal(true)}
           className="bg-primary hover:bg-primary-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
         >
           <Plus size={20} />

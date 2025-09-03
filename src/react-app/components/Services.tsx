@@ -101,38 +101,41 @@ export default function Services() {
 
   const handleSubscribe = async () => {
     if (selectedServices.length === 0) return;
-    if (!user) {
+    if (!user || !user.id) {
       alert('Please log in to subscribe.');
+      navigate('/login');
       return;
     }
 
-    try {
-      const subscriptionType = selectedServices.length === 6 ? 'bundle' : 'individual';
-      const totalPrice = calculateTotal();
-      const serviceIdsText = selectedServices.join(',');
+    const totalPrice = calculateTotal();
+    const subscriptionType = selectedServices.length === 6 ? 'bundle' : 'individual';
+    const expiresAt = new Date();
+    expiresAt.setFullYear(expiresAt.getFullYear() + 1); // 1 year subscription
 
-      const { error } = await supabase.from('subscriptions').insert([
-        {
+    try {
+      const { error } = await supabase
+        .from('subscriptions')
+        .insert({
           user_id: user.id,
-          service_ids: serviceIdsText,
+          service_ids: JSON.stringify(selectedServices),
           total_price: totalPrice,
           subscription_type: subscriptionType,
           status: 'active',
-        },
-      ]);
+          expires_at: expiresAt.toISOString(),
+        });
 
-      if (error) throw error;
-
-      alert('Subscription created successfully.');
-      setSelectedServices([]);
-      navigate('/dashboard');
+      if (error) {
+        console.error('Error creating subscription:', error);
+        alert('Failed to create subscription. Please try again.');
+      } else {
+        alert('Subscription created successfully!');
+        setSelectedServices([]);
+      }
     } catch (error) {
       console.error('Error creating subscription:', error);
-      alert('Failed to create subscription.');
+      alert('Error creating subscription. Please try again.');
     }
   };
-
-  const handlePaymentModalClose = () => {};
 
   if (loading) {
     return (
