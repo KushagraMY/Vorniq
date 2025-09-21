@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { X, Save } from 'lucide-react';
-import { simService, type Supplier } from '../../services/simService';
+import { simService } from '../../services/simService';
 
 interface ProductDrawerProps {
   isOpen: boolean;
@@ -13,7 +13,7 @@ interface ProductDrawerProps {
 export default function ProductDrawer({ isOpen, productId, mode, onClose, onSaved }: ProductDrawerProps) {
   const [form, setForm] = useState<any>({});
   const [loading, setLoading] = useState(false);
-  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  // const [suppliers, setSuppliers] = useState<Supplier[]>([]); // Unused variable
 
   useEffect(() => {
     const load = async () => {
@@ -26,8 +26,8 @@ export default function ProductDrawer({ isOpen, productId, mode, onClose, onSave
         setForm(product || {});
         
         // Load suppliers
-        const suppliersData = await simService.getSuppliers();
-        setSuppliers(suppliersData);
+        // const suppliersData = await simService.getSuppliers(); // Commented out unused variable
+        // setSuppliers(suppliersData); // Commented out unused variable
       } catch (error) {
         console.error('Error loading product data:', error);
       }

@@ -573,11 +573,11 @@ class AccountingService {
 
       overdueInvoices?.forEach(invoice => {
         reminders.push({
-          id: invoice.id || 0,
+          id: (invoice as any).id || 0,
           type: 'receivable',
           customerVendorName: invoice.customer_name || 'Unknown',
           referenceType: 'Invoice',
-          referenceId: `INV-${invoice.id}`,
+          referenceId: `INV-${(invoice as any).id}`,
           amount: (invoice.total_amount || 0) - (invoice.paid_amount || 0),
           dueDate: invoice.due_date,
           reminderDate: new Date().toISOString().split('T')[0],

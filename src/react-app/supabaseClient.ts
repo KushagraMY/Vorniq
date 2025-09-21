@@ -10,17 +10,21 @@ console.log('VITE_SUPABASE_URL:', supabaseUrl ? 'Present' : 'Missing');
 console.log('VITE_SUPABASE_ANON_KEY:', supabaseAnonKey ? 'Present' : 'Missing');
 console.log('SUPABASE_SERVICE_ROLE_KEY:', supabaseServiceRoleKey ? 'Present' : 'Missing');
 
+// Use placeholder values if environment variables are missing
+const finalSupabaseUrl = supabaseUrl || 'https://placeholder.supabase.co';
+const finalSupabaseAnonKey = supabaseAnonKey || 'placeholder-anon-key';
+
 if (!supabaseUrl || !supabaseAnonKey) {
   console.warn('Supabase env vars missing: VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY');
-  console.warn('Current values:', { supabaseUrl, supabaseAnonKey });
+  console.warn('Using placeholder values for development. Please set up your Supabase environment variables.');
 }
 
 // Client for user operations (uses anon key)
-export const supabase = createClient(supabaseUrl || '', supabaseAnonKey || '', {
+export const supabase = createClient(finalSupabaseUrl, finalSupabaseAnonKey, {
   global: {
     headers: {
-      apikey: supabaseAnonKey || '',
-      Authorization: `Bearer ${supabaseAnonKey || ''}`,
+      apikey: finalSupabaseAnonKey,
+      Authorization: `Bearer ${finalSupabaseAnonKey}`,
     },
   },
 });

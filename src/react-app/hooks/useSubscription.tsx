@@ -26,6 +26,16 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
         setSubscribedServices([]);
         return;
       }
+      
+      // Check if Supabase is properly configured
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      if (!supabaseUrl || supabaseUrl.includes('placeholder')) {
+        console.warn('Supabase not configured, using demo mode');
+        setHasActiveSubscription(false);
+        setSubscribedServices([]);
+        return;
+      }
+      
       const { data, error } = await supabase
         .from('subscriptions')
         .select('service_ids, status, expires_at')

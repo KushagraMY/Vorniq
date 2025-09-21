@@ -65,7 +65,10 @@ export default function ProductFormModal({ isOpen, onClose, onCreated }: Product
       setError(null);
       
       // Use SIM service to add product
-      await simService.addProduct(form);
+      await simService.addProduct({
+        ...form,
+        supplier_id: form.supplier_id || undefined
+      });
       
       onClose();
       onCreated && onCreated();

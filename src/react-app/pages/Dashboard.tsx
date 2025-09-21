@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ArrowLeft, BarChart3, TrendingUp, Download, FileText, Plus, DollarSign, Users, Target, RefreshCw } from 'lucide-react';
+import { ArrowLeft, BarChart3, TrendingUp, Download, FileText, DollarSign, Users, Target, RefreshCw } from 'lucide-react';
 import { useNavigate } from 'react-router';
 import { useSubscription } from '@/react-app/hooks/useSubscription';
 import PaywallOverlay from '@/react-app/components/PaywallOverlay';

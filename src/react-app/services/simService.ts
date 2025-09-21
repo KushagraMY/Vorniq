@@ -410,7 +410,7 @@ class SIMService {
         product: idToName.get(a.product_id) || `Product #${a.product_id}`,
         current: a.current_stock || 0,
         minimum: a.threshold_value || 0,
-        status: a.alert_type === 'out_of_stock' ? 'critical' : 'warning',
+        status: (a.alert_type === 'out_of_stock' ? 'critical' : 'warning') as 'critical' | 'warning',
       }));
 
       console.log('Recent alerts fetched:', recentAlerts.length, 'alerts');

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ArrowLeft, Calculator, DollarSign, FileText, Bell, CreditCard, Plus, TrendingUp } from 'lucide-react';
+import { ArrowLeft, Calculator, DollarSign, FileText, Bell, CreditCard, TrendingUp } from 'lucide-react';
 import { useNavigate } from 'react-router';
 import { useSubscription } from '@/react-app/hooks/useSubscription';
 import PaywallOverlay from '@/react-app/components/PaywallOverlay';

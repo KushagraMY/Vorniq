@@ -135,7 +135,7 @@ class DashboardService {
       console.log('--- Individual Data Sources ---');
       const [invoices, expenses, employees, customers, products] = await Promise.all([
         simService.getInvoices(),
-        accountingService.getExpenses ? accountingService.getExpenses() : Promise.resolve([]),
+        accountingService.getTransactions().then(transactions => transactions.filter((t: any) => t.type === 'expense')),
         hrmService.getEmployees(),
         crmService.getCustomers(),
         simService.getProducts()
@@ -171,7 +171,7 @@ class DashboardService {
         simService.getSIMStats(),
         accountingService.getAccountingStats(),
         simService.getInvoices(),
-        accountingService.getExpenses ? accountingService.getExpenses() : Promise.resolve([])
+        accountingService.getTransactions().then(transactions => transactions.filter((t: any) => t.type === 'expense'))
       ]);
 
       console.log('Module stats received:', {
@@ -183,11 +183,11 @@ class DashboardService {
 
       // Calculate total revenue from paid invoices
       const totalRevenue = invoices
-        .filter(invoice => invoice.payment_status === 'paid')
-        .reduce((sum, invoice) => sum + (invoice.paid_amount || 0), 0);
+        .filter((invoice: any) => invoice.payment_status === 'paid')
+        .reduce((sum: number, invoice: any) => sum + (invoice.paid_amount || 0), 0);
 
       // Calculate total expenses
-      const totalExpenses = expenses.reduce((sum, expense) => sum + (expense.amount || 0), 0);
+      const totalExpenses = expenses.reduce((sum: number, expense: any) => sum + (expense.amount || 0), 0);
 
       // Get employee count from HRM
       const totalEmployees = hrmStats.totalEmployees || 0;
@@ -243,7 +243,7 @@ class DashboardService {
       
       // Get sales data from SIM service
       const invoices = await simService.getInvoices();
-      const recentSales = await simService.getRecentSales();
+      // const recentSales = await simService.getRecentSales(); // Unused variable
 
       // Get sales data from last 6 months
       const sixMonthsAgo = new Date();
@@ -295,21 +295,22 @@ class DashboardService {
     try {
       console.log('Fetching expense data from accounting module...');
       
-      // Get expense data from accounting service
-      const expenses = await accountingService.getExpenses ? accountingService.getExpenses() : [];
+      // Get expense data from accounting service - using getTransactions instead
+      const transactions = await accountingService.getTransactions();
+      const expenses = transactions.filter((t: any) => t.type === 'expense');
 
       // Get data from last 6 months
       const sixMonthsAgo = new Date();
       sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
 
-      const recentExpenses = expenses.filter(expense => {
+      const recentExpenses = expenses.filter((expense: any) => {
         const expenseDate = new Date(expense.date);
         return expenseDate >= sixMonthsAgo && expense.status === 'approved';
       });
 
       const monthlyData: { [key: string]: { [category: string]: number } } = {};
 
-      recentExpenses.forEach((expense) => {
+      recentExpenses.forEach((expense: any) => {
         const month = new Date(expense.date).toLocaleDateString('en-US', { month: 'short' });
         if (!monthlyData[month]) {
           monthlyData[month] = { salary: 0, rent: 0, utilities: 0, marketing: 0, others: 0 };
