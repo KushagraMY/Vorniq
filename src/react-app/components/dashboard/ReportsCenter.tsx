@@ -1,5 +1,4 @@
-import React from 'react';
-import { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   FileText, 
   Download, 
@@ -12,6 +11,7 @@ import {
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import * as XLSX from 'xlsx';
+import { dashboardService } from '../../services/dashboardService';
 
 const iconMap: Record<string, React.ComponentType<{size?: number}>> = {
   FileText, Download, TrendingUp, DollarSign, Users, Package, BarChart3
@@ -117,25 +117,50 @@ export default function ReportsCenter() {
   const [selectedTemplate, setSelectedTemplate] = useState<number | null>(null);
   const [dateRange, setDateRange] = useState('30days');
   const [reportFormat, setReportFormat] = useState('pdf');
+  const [loading, setLoading] = useState(false);
 
-  const generateSampleData = () => {
-    return {
-      sales: [
-        { month: 'Jan', revenue: 65000, orders: 150, customers: 120 },
-        { month: 'Feb', revenue: 78000, orders: 180, customers: 145 },
-        { month: 'Mar', revenue: 85000, orders: 200, customers: 165 },
-      ],
-      expenses: [
-        { category: 'Salary', amount: 45000 },
-        { category: 'Marketing', amount: 15000 },
-        { category: 'Operations', amount: 12000 },
-      ],
-      employees: [
-        { name: 'John Doe', department: 'Sales', salary: 50000 },
-        { name: 'Jane Smith', department: 'Marketing', salary: 45000 },
-        { name: 'Mike Johnson', department: 'IT', salary: 60000 },
-      ]
-    };
+  const generateRealData = async () => {
+    setLoading(true);
+    try {
+      const [sales, expenses, kpi] = await Promise.all([
+        dashboardService.getSalesData(),
+        dashboardService.getExpenseCategories(),
+        dashboardService.getKPIData(),
+      ]);
+
+      return {
+        sales: sales.map(item => ({
+          month: item.month,
+          revenue: item.sales,
+          orders: item.orders,
+          customers: item.customers,
+        })),
+        expenses: expenses.map(item => ({
+          category: item.name,
+          amount: item.value,
+        })),
+        kpi: {
+          totalRevenue: kpi.totalRevenue,
+          totalExpenses: kpi.totalExpenses,
+          netProfit: kpi.netProfit,
+          totalEmployees: kpi.totalEmployees,
+        }
+      };
+    } catch (error) {
+      console.error('Error generating real data:', error);
+      return {
+        sales: [],
+        expenses: [],
+        kpi: {
+          totalRevenue: 0,
+          totalExpenses: 0,
+          netProfit: 0,
+          totalEmployees: 0,
+        }
+      };
+    } finally {
+      setLoading(false);
+    }
   };
 
   const exportToPDF = (reportName: string, data: any) => {
@@ -220,8 +245,8 @@ export default function ReportsCenter() {
     XLSX.writeFile(workbook, `${reportName.replace(/\s+/g, '_')}.xlsx`);
   };
 
-  const generateReport = (template: any) => {
-    const data = generateSampleData();
+  const generateReport = async (template: any) => {
+    const data = await generateRealData();
     const reportName = `${template.name} - ${new Date().toLocaleDateString()}`;
     
     if (reportFormat === 'pdf') {
@@ -313,10 +338,11 @@ export default function ReportsCenter() {
                       e.stopPropagation();
                       generateReport(template);
                     }}
-                    className="flex items-center gap-1 px-3 py-1 bg-indigo-600 text-white rounded text-sm hover:bg-indigo-700 transition-colors"
+                    disabled={loading}
+                    className="flex items-center gap-1 px-3 py-1 bg-indigo-600 text-white rounded text-sm hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <Download size={14} />
-                    Generate
+                    {loading ? 'Generating...' : 'Generate'}
                   </button>
                   <button className="flex items-center gap-1 px-3 py-1 text-gray-600 hover:text-gray-900 transition-colors">
                     {/* Removed Eye icon */}

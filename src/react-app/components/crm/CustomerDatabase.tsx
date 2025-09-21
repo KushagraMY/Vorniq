@@ -1,30 +1,20 @@
 import { useState, useEffect } from 'react';
 import { Users, Plus, Search, Eye, Edit, Trash2, Mail, Phone, Globe, MapPin } from 'lucide-react';
-import { supabase } from '../../supabaseClient';
+import { crmService, type Customer } from '../../services/crmService';
+import CustomerFormModal from './CustomerFormModal';
+import CustomerDrawer from './CustomerDrawer';
+import ConfirmDeleteModal from './ConfirmDeleteModal';
 
-interface Customer {
-  id: number;
-  name: string;
-  email: string;
-  phone: string;
-  company: string;
-  job_title: string;
-  address: string;
-  city: string;
-  country: string;
-  website: string;
-  source: string;
-  tags: string;
-  notes: string;
-  created_at: string;
-  updated_at: string;
-}
 
 export default function CustomerDatabase() {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [sourceFilter, setSourceFilter] = useState('all');
+  const [showAdd, setShowAdd] = useState(false);
+  const [drawerCustomerId, setDrawerCustomerId] = useState<number | null>(null);
+  const [drawerMode, setDrawerMode] = useState<'view' | 'edit'>('view');
+  const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
 
   useEffect(() => {
     fetchCustomers();
@@ -33,13 +23,8 @@ export default function CustomerDatabase() {
   const fetchCustomers = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
-        .from('customers')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      setCustomers(data || []);
+      const data = await crmService.getCustomers();
+      setCustomers(data);
     } catch (error) {
       console.error('Error fetching customers:', error);
     } finally {
@@ -58,19 +43,14 @@ export default function CustomerDatabase() {
 
   const sources = [...new Set(customers.map(customer => customer.source))];
 
-  const handleDelete = async (customerId: number) => {
-    if (window.confirm('Are you sure you want to delete this customer?')) {
-      try {
-        const { error } = await supabase
-          .from('customers')
-          .delete()
-          .eq('id', customerId);
-
-        if (error) throw error;
-        fetchCustomers();
-      } catch (error) {
-        console.error('Error deleting customer:', error);
-      }
+  const doDelete = async () => {
+    if (!confirmDeleteId) return;
+    try {
+      await crmService.deleteCustomer(confirmDeleteId);
+      setConfirmDeleteId(null);
+      fetchCustomers();
+    } catch (error) {
+      console.error('Error deleting customer:', error);
     }
   };
 
@@ -91,6 +71,7 @@ export default function CustomerDatabase() {
           <p className="text-gray-600">Manage your customer relationships and information</p>
         </div>
         <button
+          onClick={() => setShowAdd(true)}
           className="bg-primary hover:bg-primary-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
         >
           <Plus size={20} />
@@ -244,16 +225,13 @@ export default function CustomerDatabase() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                     <div className="flex items-center gap-2">
-                      <button className="text-primary hover:text-primary-600">
+                      <button onClick={() => { setDrawerCustomerId(customer.id); setDrawerMode('view'); }} className="text-primary hover:text-primary-600">
                         <Eye size={16} />
                       </button>
-                      <button className="text-blue-600 hover:text-blue-800">
+                      <button onClick={() => { setDrawerCustomerId(customer.id); setDrawerMode('edit'); }} className="text-blue-600 hover:text-blue-800">
                         <Edit size={16} />
                       </button>
-                      <button 
-                        onClick={() => handleDelete(customer.id)}
-                        className="text-red-600 hover:text-red-800"
-                      >
+                      <button onClick={() => setConfirmDeleteId(customer.id)} className="text-red-600 hover:text-red-800">
                         <Trash2 size={16} />
                       </button>
                     </div>
@@ -273,7 +251,25 @@ export default function CustomerDatabase() {
         )}
       </div>
 
-      {/* Add Customer Modal would go here */}
+      <CustomerFormModal
+        isOpen={showAdd}
+        onClose={() => setShowAdd(false)}
+        onCreated={fetchCustomers}
+      />
+      <CustomerDrawer
+        isOpen={drawerCustomerId !== null}
+        customerId={drawerCustomerId}
+        mode={drawerMode}
+        onClose={() => setDrawerCustomerId(null)}
+        onSaved={fetchCustomers}
+      />
+      <ConfirmDeleteModal
+        isOpen={confirmDeleteId !== null}
+        title="Delete Customer"
+        message="Are you sure you want to delete this customer? This action cannot be undone."
+        onCancel={() => setConfirmDeleteId(null)}
+        onConfirm={doDelete}
+      />
     </div>
   );
 }

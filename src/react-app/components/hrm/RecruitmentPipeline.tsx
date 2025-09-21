@@ -1,5 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Users, UserPlus, Calendar, Star, MapPin, DollarSign, Search } from 'lucide-react';
+import { supabase } from '../../supabaseClient';
+import PositionFormModal from './PositionFormModal';
+import ApplicationFormModal from './ApplicationFormModal';
 
 interface JobPosition {
   id: number;
@@ -44,6 +47,8 @@ export default function RecruitmentPipeline() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'positions' | 'applications'>('positions');
   const [searchTerm, setSearchTerm] = useState('');
+  const [showAddPosition, setShowAddPosition] = useState(false);
+  const [showAddApplication, setShowAddApplication] = useState(false);
 
   const applicationStages = [
     { value: 'applied', label: 'Applied', color: 'bg-blue-100 text-blue-800' },
@@ -60,16 +65,13 @@ export default function RecruitmentPipeline() {
 
   const fetchData = async () => {
     try {
-      const [positionsResponse, applicationsResponse] = await Promise.all([
-        fetch('/api/hrm/positions'),
-        fetch('/api/hrm/applications')
+      setLoading(true);
+      const [{ data: pos }, { data: apps }] = await Promise.all([
+        supabase.from('job_positions').select('*').order('created_at', { ascending: false }),
+        supabase.from('applications').select('*').order('created_at', { ascending: false })
       ]);
-
-      const positionsData = await positionsResponse.json();
-      const applicationsData = await applicationsResponse.json();
-
-      setPositions(positionsData);
-      setApplications(applicationsData);
+      setPositions(pos || []);
+      setApplications(apps || []);
     } catch (error) {
       console.error('Error fetching recruitment data:', error);
     } finally {
@@ -79,15 +81,8 @@ export default function RecruitmentPipeline() {
 
   const handleStageChange = async (applicationId: number, newStage: string) => {
     try {
-      const response = await fetch(`/api/hrm/applications/${applicationId}/stage`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ stage: newStage })
-      });
-
-      if (response.ok) {
-        fetchData();
-      }
+      await supabase.from('applications').update({ stage: newStage, updated_at: new Date().toISOString() }).eq('id', applicationId);
+      fetchData();
     } catch (error) {
       console.error('Error updating application stage:', error);
     }
@@ -120,10 +115,16 @@ export default function RecruitmentPipeline() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-semibold text-gray-900">Recruitment Pipeline</h2>
-        <button className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors">
-          <UserPlus size={18} />
-          Add Position
-        </button>
+        <div className="flex items-center gap-2">
+          <button onClick={() => setShowAddPosition(true)} className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors">
+            <UserPlus size={18} />
+            Add Position
+          </button>
+          <button onClick={() => setShowAddApplication(true)} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors">
+            <Users size={18} />
+            Add Application
+          </button>
+        </div>
       </div>
 
       {/* Stats */}
@@ -332,6 +333,9 @@ export default function RecruitmentPipeline() {
           </p>
         </div>
       )}
+
+      <PositionFormModal isOpen={showAddPosition} onClose={() => setShowAddPosition(false)} onCreated={fetchData} />
+      <ApplicationFormModal isOpen={showAddApplication} onClose={() => setShowAddApplication(false)} onCreated={fetchData} />
     </div>
   );
 }

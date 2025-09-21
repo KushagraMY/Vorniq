@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Search, Filter, Download, Calendar, User, Shield, Key, Activity, Clock } from 'lucide-react';
+import { supabase } from '../../supabaseClient';
 
 interface AuditLog {
   id: number;
@@ -38,109 +39,17 @@ export default function AuditLogs() {
   const [filterSeverity, setFilterSeverity] = useState('all');
   const [dateRange, setDateRange] = useState('today');
 
-  // Sample data - in real app, this would come from API
   useEffect(() => {
-    const sampleLogs: AuditLog[] = [
-      {
-        id: 1,
-        timestamp: '2024-01-15T10:30:00Z',
-        user: 'john.doe@company.com',
-        action: 'CREATE_USER',
-        resource: 'users',
-        details: 'Created new user: jane.smith@company.com',
-        ip_address: '192.168.1.100',
-        user_agent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        severity: 'medium',
-        category: 'User Management'
-      },
-      {
-        id: 2,
-        timestamp: '2024-01-15T10:25:00Z',
-        user: 'admin@company.com',
-        action: 'UPDATE_ROLE',
-        resource: 'roles',
-        details: 'Updated role permissions for Manager role',
-        ip_address: '192.168.1.101',
-        user_agent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        severity: 'high',
-        category: 'Role Management'
-      },
-      {
-        id: 3,
-        timestamp: '2024-01-15T10:20:00Z',
-        user: 'jane.smith@company.com',
-        action: 'LOGIN_SUCCESS',
-        resource: 'authentication',
-        details: 'Successful login from new device',
-        ip_address: '192.168.1.102',
-        user_agent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
-        severity: 'low',
-        category: 'Authentication'
-      },
-      {
-        id: 4,
-        timestamp: '2024-01-15T10:15:00Z',
-        user: 'system',
-        action: 'PERMISSION_DENIED',
-        resource: 'crm.customers',
-        details: 'Access denied to customer records for user: guest@company.com',
-        ip_address: '192.168.1.103',
-        user_agent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        severity: 'critical',
-        category: 'Security'
-      },
-      {
-        id: 5,
-        timestamp: '2024-01-15T10:10:00Z',
-        user: 'admin@company.com',
-        action: 'CREATE_PERMISSION',
-        resource: 'permissions',
-        details: 'Created new permission: crm.reports.export',
-        ip_address: '192.168.1.101',
-        user_agent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        severity: 'medium',
-        category: 'Permission Management'
-      },
-      {
-        id: 6,
-        timestamp: '2024-01-15T10:05:00Z',
-        user: 'mike.johnson@company.com',
-        action: 'UPDATE_PROFILE',
-        resource: 'users',
-        details: 'Updated user profile information',
-        ip_address: '192.168.1.104',
-        user_agent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        severity: 'low',
-        category: 'User Management'
-      },
-      {
-        id: 7,
-        timestamp: '2024-01-15T10:00:00Z',
-        user: 'system',
-        action: 'BACKUP_COMPLETED',
-        resource: 'database',
-        details: 'Daily database backup completed successfully',
-        ip_address: '127.0.0.1',
-        user_agent: 'System Process',
-        severity: 'low',
-        category: 'System'
-      },
-      {
-        id: 8,
-        timestamp: '2024-01-15T09:55:00Z',
-        user: 'sarah.wilson@company.com',
-        action: 'LOGIN_FAILED',
-        resource: 'authentication',
-        details: 'Failed login attempt - invalid password',
-        ip_address: '192.168.1.105',
-        user_agent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        severity: 'medium',
-        category: 'Authentication'
+    const fetchLogs = async () => {
+      try {
+        setLoading(true);
+        const { data } = await supabase.from('audit_logs').select('*').order('timestamp', { ascending: false });
+        setLogs((data || []) as AuditLog[]);
+      } finally {
+        setLoading(false);
       }
-    ];
-
-    setLogs(sampleLogs);
-    setLoading(false);
+    };
+    fetchLogs();
   }, []);
 
   const filteredLogs = logs.filter(log => {

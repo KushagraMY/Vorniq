@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { 
   Users, 
   DollarSign, 
@@ -9,55 +9,54 @@ import {
   ArrowDown
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
-
-const attendanceData = [
-  { month: 'Jan', present: 92, absent: 8, late: 5 },
-  { month: 'Feb', present: 95, absent: 5, late: 3 },
-  { month: 'Mar', present: 88, absent: 12, late: 8 },
-  { month: 'Apr', present: 91, absent: 9, late: 6 },
-  { month: 'May', present: 94, absent: 6, late: 4 },
-  { month: 'Jun', present: 96, absent: 4, late: 2 },
-];
-
-const departmentData = [
-  { name: 'Engineering', employees: 45, color: '#3b82f6' },
-  { name: 'Sales', employees: 32, color: '#10b981' },
-  { name: 'Marketing', employees: 28, color: '#f59e0b' },
-  { name: 'Support', employees: 22, color: '#ef4444' },
-  { name: 'HR', employees: 15, color: '#8b5cf6' },
-  { name: 'Finance', employees: 14, color: '#06b6d4' },
-];
-
-const payrollData = [
-  { month: 'Jan', salary: 3200000, benefits: 480000, overtime: 125000 },
-  { month: 'Feb', salary: 3350000, benefits: 502000, overtime: 142000 },
-  { month: 'Mar', salary: 3400000, benefits: 510000, overtime: 158000 },
-  { month: 'Apr', salary: 3500000, benefits: 525000, overtime: 175000 },
-  { month: 'May', salary: 3600000, benefits: 540000, overtime: 165000 },
-  { month: 'Jun', salary: 3650000, benefits: 547000, overtime: 180000 },
-];
-
-const recentHires = [
-  { name: 'Sarah Johnson', department: 'Engineering', date: '2024-01-15', status: 'Active' },
-  { name: 'Michael Chen', department: 'Sales', date: '2024-01-12', status: 'Active' },
-  { name: 'Emma Wilson', department: 'Marketing', date: '2024-01-08', status: 'Active' },
-  { name: 'David Brown', department: 'Support', date: '2024-01-05', status: 'Active' },
-];
-
-const leaveRequests = [
-  { employee: 'John Smith', type: 'Vacation', days: 5, status: 'Approved', date: '2024-01-20' },
-  { employee: 'Lisa Garcia', type: 'Sick Leave', days: 2, status: 'Pending', date: '2024-01-18' },
-  { employee: 'Mike Johnson', type: 'Personal', days: 1, status: 'Approved', date: '2024-01-15' },
-  { employee: 'Anna Davis', type: 'Maternity', days: 90, status: 'Approved', date: '2024-02-01' },
-];
+import { dashboardService, type HRData, type DepartmentData, type PayrollData, type RecentHire, type LeaveRequest } from '../../services/dashboardService';
 
 export default function HROverview() {
   const [selectedPeriod, setSelectedPeriod] = useState('6months');
+  const [attendanceData, setAttendanceData] = useState<HRData[]>([]);
+  const [departmentData, setDepartmentData] = useState<DepartmentData[]>([]);
+  const [payrollData, setPayrollData] = useState<PayrollData[]>([]);
+  const [recentHires, setRecentHires] = useState<RecentHire[]>([]);
+  const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        const [attendance, departments, payroll, hires, leaves] = await Promise.all([
+          dashboardService.getHRData(),
+          dashboardService.getDepartmentData(),
+          dashboardService.getPayrollData(),
+          dashboardService.getRecentHires(),
+          dashboardService.getLeaveRequests(),
+        ]);
+        
+        setAttendanceData(attendance);
+        setDepartmentData(departments);
+        setPayrollData(payroll);
+        setRecentHires(hires);
+        setLeaveRequests(leaves);
+      } catch (error) {
+        console.error('Error fetching HR data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  // Calculate metrics from real data
+  const totalEmployees = departmentData.reduce((sum, dept) => sum + dept.employees, 0);
+  const totalAttendance = attendanceData.reduce((sum, month) => sum + month.present + month.absent + month.late, 0);
+  const avgAttendance = totalAttendance > 0 ? (attendanceData.reduce((sum, month) => sum + month.present, 0) / totalAttendance) * 100 : 0;
+  const monthlyPayroll = payrollData.reduce((sum, month) => sum + month.salary + month.benefits + month.overtime, 0);
 
   const hrMetrics = [
     {
       title: 'Total Employees',
-      value: '156',
+      value: totalEmployees.toString(),
       change: '+8',
       changeType: 'positive',
       icon: Users,
@@ -66,7 +65,7 @@ export default function HROverview() {
     },
     {
       title: 'Average Attendance',
-      value: '93%',
+      value: `${avgAttendance.toFixed(0)}%`,
       change: '+2.1%',
       changeType: 'positive',
       icon: UserCheck,
@@ -75,7 +74,7 @@ export default function HROverview() {
     },
     {
       title: 'Monthly Payroll',
-      value: '₹37.7L',
+      value: `₹${(monthlyPayroll / 100000).toFixed(1)}L`,
       change: '+12.5%',
       changeType: 'neutral',
       icon: DollarSign,
@@ -96,6 +95,24 @@ export default function HROverview() {
   const handleExport = () => {
     console.log('Exporting HR overview...');
   };
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <h2 className="text-2xl font-bold text-gray-900">HR Overview</h2>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {[...Array(4)].map((_, idx) => (
+            <div key={idx} className="border-2 border-gray-200 rounded-xl p-6 animate-pulse">
+              <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
+              <div className="h-8 bg-gray-200 rounded w-1/2"></div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

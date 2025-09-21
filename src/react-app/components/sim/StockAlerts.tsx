@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { AlertTriangle, Package, TrendingUp, CheckCircle, Bell } from 'lucide-react';
+import { supabase } from '../../supabaseClient';
 
 interface StockAlert {
   id: number;
@@ -20,57 +21,46 @@ export default function StockAlerts() {
   const [filterStatus, setFilterStatus] = useState('all');
 
   useEffect(() => {
-    // Simulate API call
-    setTimeout(() => {
-      const mockAlerts: StockAlert[] = [
-        {
-          id: 1,
-          product_id: 2,
-          product_name: 'iPhone 15 Pro',
-          alert_type: 'low_stock',
-          current_stock: 5,
-          threshold_value: 15,
-          is_active: true,
-          acknowledged_at: '',
-          created_at: '2024-01-15T00:00:00Z'
-        },
-        {
-          id: 2,
-          product_id: 4,
-          product_name: 'Samsung Galaxy S24',
-          alert_type: 'out_of_stock',
-          current_stock: 0,
-          threshold_value: 0,
-          is_active: true,
-          acknowledged_at: '',
-          created_at: '2024-01-16T00:00:00Z'
-        },
-        {
-          id: 3,
-          product_id: 5,
-          product_name: 'Dell XPS 13',
-          alert_type: 'overstock',
-          current_stock: 85,
-          threshold_value: 50,
-          is_active: true,
-          acknowledged_at: '',
-          created_at: '2024-01-17T00:00:00Z'
-        },
-        {
-          id: 4,
-          product_id: 6,
-          product_name: 'Wireless Mouse',
-          alert_type: 'low_stock',
-          current_stock: 8,
-          threshold_value: 20,
-          is_active: false,
-          acknowledged_at: '2024-01-18T10:30:00Z',
-          created_at: '2024-01-14T00:00:00Z'
-        }
-      ];
-      setAlerts(mockAlerts);
-      setLoading(false);
-    }, 1000);
+    const fetchAlerts = async () => {
+      try {
+        setLoading(true);
+        const [{ data: alertsData, error: alertsError }, { data: productsData, error: productsError }] = await Promise.all([
+          supabase
+            .from('stock_alerts')
+            .select('*')
+            .order('created_at', { ascending: false }),
+          supabase
+            .from('products')
+            .select('id, name')
+        ]);
+
+        if (alertsError) throw alertsError;
+        if (productsError) throw productsError;
+
+        const productIdToName = new Map<number, string>((productsData || []).map((p: any) => [p.id, p.name]));
+
+        const normalizedAlerts: StockAlert[] = (alertsData || []).map((a: any) => ({
+          id: a.id,
+          product_id: a.product_id,
+          product_name: productIdToName.get(a.product_id) || 'Unknown Product',
+          alert_type: a.alert_type,
+          current_stock: a.current_stock,
+          threshold_value: a.threshold_value,
+          is_active: a.is_active,
+          acknowledged_at: a.acknowledged_at || '',
+          created_at: a.created_at
+        }));
+
+        setAlerts(normalizedAlerts);
+      } catch (error) {
+        console.error('Error fetching stock alerts:', error);
+        setAlerts([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchAlerts();
   }, []);
 
   const getAlertIcon = (type: string) => {

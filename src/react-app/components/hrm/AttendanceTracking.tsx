@@ -1,23 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Clock, Plus, Search, Eye, Edit, Trash2, Calendar, Users, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
-import { supabase } from '../../supabaseClient';
+import { hrmService, type Attendance, type Employee } from '../../services/hrmService';
+import AttendanceMarkModal from './AttendanceMarkModal';
 
-interface Attendance {
-  id: number;
-  employee_id: number;
-  date: string;
-  clock_in_time: string;
-  status: string;
-  created_at: string;
-}
-
-interface Employee {
-  id: number;
-  employee_id: string;
-  first_name: string;
-  last_name: string;
-  department: string;
-}
 
 export default function AttendanceTracking() {
   const [attendance, setAttendance] = useState<Attendance[]>([]);
@@ -26,6 +11,7 @@ export default function AttendanceTracking() {
   const [searchTerm, setSearchTerm] = useState('');
   const [dateFilter, setDateFilter] = useState(new Date().toISOString().split('T')[0]);
   const [statusFilter, setStatusFilter] = useState('all');
+  const [showMark, setShowMark] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -35,38 +21,20 @@ export default function AttendanceTracking() {
     try {
       setLoading(true);
       
-      // Fetch attendance records
-      const { data: attendanceData, error: attendanceError } = await supabase
-        .from('attendance')
-        .select('*')
-        .order('created_at', { ascending: false });
+      // Fetch attendance records and employees
+      const [attendanceData, employeesData] = await Promise.all([
+        hrmService.getAttendance(),
+        hrmService.getEmployees().then(emps => emps.filter(emp => emp.status === 'active'))
+      ]);
 
-      if (attendanceError) throw attendanceError;
-
-      // Fetch employees for reference
-      const { data: employeesData, error: employeesError } = await supabase
-        .from('employees')
-        .select('id, employee_id, first_name, last_name, department')
-        .eq('status', 'active');
-
-      if (employeesError) throw employeesError;
-
-      setAttendance(attendanceData || []);
-      setEmployees(employeesData || []);
+      setAttendance(attendanceData);
+      setEmployees(employeesData);
     } catch (error) {
       console.error('Error fetching attendance data:', error);
     } finally {
       setLoading(false);
     }
   };
-
-  const filteredAttendance = attendance.filter(record => {
-    const matchesSearch = getEmployeeName(record.employee_id).toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         getEmployeeId(record.employee_id).toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesDate = dateFilter === 'all' || record.date === dateFilter;
-    const matchesStatus = statusFilter === 'all' || record.status === statusFilter;
-    return matchesSearch && matchesDate && matchesStatus;
-  });
 
   const getEmployeeName = (employeeId: number) => {
     const employee = employees.find(e => e.id === employeeId);
@@ -105,15 +73,18 @@ export default function AttendanceTracking() {
     }
   };
 
+  const filteredAttendance = attendance.filter(record => {
+    const matchesSearch = getEmployeeName(record.employee_id).toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         getEmployeeId(record.employee_id).toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesDate = dateFilter === 'all' || record.date === dateFilter;
+    const matchesStatus = statusFilter === 'all' || record.status === statusFilter;
+    return matchesSearch && matchesDate && matchesStatus;
+  });
+
   const handleDelete = async (attendanceId: number) => {
     if (window.confirm('Are you sure you want to delete this attendance record?')) {
       try {
-        const { error } = await supabase
-          .from('attendance')
-          .delete()
-          .eq('id', attendanceId);
-
-        if (error) throw error;
+        await hrmService.deleteAttendance(attendanceId);
         fetchData();
       } catch (error) {
         console.error('Error deleting attendance record:', error);
@@ -153,6 +124,7 @@ export default function AttendanceTracking() {
           <p className="text-gray-600">Monitor employee attendance and time tracking</p>
         </div>
         <button
+          onClick={() => setShowMark(true)}
           className="bg-primary hover:bg-primary-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
         >
           <Plus size={20} />
@@ -318,7 +290,7 @@ export default function AttendanceTracking() {
         )}
       </div>
 
-      {/* Mark Attendance Modal would go here */}
+      <AttendanceMarkModal isOpen={showMark} onClose={() => setShowMark(false)} onCreated={fetchData} />
     </div>
   );
 }

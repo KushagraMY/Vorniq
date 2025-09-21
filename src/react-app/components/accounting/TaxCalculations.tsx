@@ -1,25 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Calculator, Plus, Download, FileText, AlertCircle } from 'lucide-react';
-
-interface TaxSettings {
-  id: number;
-  name: string;
-  rate: number;
-  type: string;
-  isActive: boolean;
-}
-
-interface TaxCalculation {
-  id: number;
-  description: string;
-  amount: number;
-  taxType: string;
-  taxRate: number;
-  taxAmount: number;
-  totalAmount: number;
-  date: string;
-  category: string;
-}
+import { accountingService, type TaxSettings, type TaxCalculation } from '../../services/accountingService';
 
 export default function TaxCalculations() {
   const [taxSettings, setTaxSettings] = useState<TaxSettings[]>([]);
@@ -27,55 +8,27 @@ export default function TaxCalculations() {
   const [showCalculator, setShowCalculator] = useState(false);
   const [showTaxSettings, setShowTaxSettings] = useState(false);
   const [selectedPeriod, setSelectedPeriod] = useState('this_month');
+  const [loading, setLoading] = useState(true);
 
-  // Mock data - in real app, this would come from API
   useEffect(() => {
-    const mockTaxSettings: TaxSettings[] = [
-      { id: 1, name: 'GST 18%', rate: 18, type: 'GST', isActive: true },
-      { id: 2, name: 'GST 12%', rate: 12, type: 'GST', isActive: true },
-      { id: 3, name: 'GST 5%', rate: 5, type: 'GST', isActive: true },
-      { id: 4, name: 'GST 0%', rate: 0, type: 'GST', isActive: true },
-      { id: 5, name: 'TDS 10%', rate: 10, type: 'TDS', isActive: true },
-    ];
-
-    const mockCalculations: TaxCalculation[] = [
-      {
-        id: 1,
-        description: 'Web Development Services',
-        amount: 100000,
-        taxType: 'GST 18%',
-        taxRate: 18,
-        taxAmount: 18000,
-        totalAmount: 118000,
-        date: '2024-01-15',
-        category: 'Sales'
-      },
-      {
-        id: 2,
-        description: 'Office Equipment Purchase',
-        amount: 50000,
-        taxType: 'GST 12%',
-        taxRate: 12,
-        taxAmount: 6000,
-        totalAmount: 56000,
-        date: '2024-01-10',
-        category: 'Purchase'
-      },
-      {
-        id: 3,
-        description: 'Consulting Services',
-        amount: 75000,
-        taxType: 'GST 18%',
-        taxRate: 18,
-        taxAmount: 13500,
-        totalAmount: 88500,
-        date: '2024-01-12',
-        category: 'Sales'
+    const fetchTaxData = async () => {
+      try {
+        setLoading(true);
+        const [settings, calculationsData] = await Promise.all([
+          accountingService.getTaxSettings(),
+          accountingService.getTaxCalculations(),
+        ]);
+        
+        setTaxSettings(settings);
+        setCalculations(calculationsData);
+      } catch (error) {
+        console.error('Error fetching tax data:', error);
+      } finally {
+        setLoading(false);
       }
-    ];
+    };
 
-    setTaxSettings(mockTaxSettings);
-    setCalculations(mockCalculations);
+    fetchTaxData();
   }, []);
 
   const TaxCalculatorForm = ({ onSave, onCancel }: {
@@ -296,27 +249,48 @@ export default function TaxCalculations() {
     );
   };
 
-  const handleSaveCalculation = (data: Partial<TaxCalculation>) => {
-    const newCalculation = {
-      ...data,
-      id: Math.max(...calculations.map(c => c.id), 0) + 1
-    } as TaxCalculation;
-    setCalculations([...calculations, newCalculation]);
-    setShowCalculator(false);
+  const handleSaveCalculation = async (data: Partial<TaxCalculation>) => {
+    try {
+      const newCalculation = await accountingService.addTaxCalculation(data);
+      setCalculations([...calculations, newCalculation]);
+      setShowCalculator(false);
+    } catch (error) {
+      console.error('Error saving tax calculation:', error);
+    }
   };
 
-  const handleSaveTaxSetting = (data: Partial<TaxSettings>) => {
-    const newSetting = {
-      ...data,
-      id: Math.max(...taxSettings.map(t => t.id), 0) + 1
-    } as TaxSettings;
-    setTaxSettings([...taxSettings, newSetting]);
-    setShowTaxSettings(false);
+  const handleSaveTaxSetting = async (data: Partial<TaxSettings>) => {
+    try {
+      // This would need to be implemented in the service
+      const newSetting = {
+        ...data,
+        id: Math.max(...taxSettings.map(t => t.id), 0) + 1
+      } as TaxSettings;
+      setTaxSettings([...taxSettings, newSetting]);
+      setShowTaxSettings(false);
+    } catch (error) {
+      console.error('Error saving tax setting:', error);
+    }
   };
 
   const totalTaxAmount = calculations.reduce((sum, calc) => sum + calc.taxAmount, 0);
   const totalSalesAmount = calculations.filter(c => c.category === 'Sales').reduce((sum, calc) => sum + calc.totalAmount, 0);
   const totalPurchaseAmount = calculations.filter(c => c.category === 'Purchase').reduce((sum, calc) => sum + calc.totalAmount, 0);
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {[...Array(3)].map((_, idx) => (
+            <div key={idx} className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 animate-pulse">
+              <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
+              <div className="h-8 bg-gray-200 rounded w-1/2"></div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

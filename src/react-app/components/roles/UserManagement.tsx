@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Plus, Edit, Trash2, Search, Filter, Clock } from 'lucide-react';
+import { supabase } from '../../supabaseClient';
+import ConfirmDeleteModal from '@/react-app/components/crm/ConfirmDeleteModal';
 
 interface User {
   id: number;
@@ -29,69 +31,26 @@ export default function UserManagement() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
 
-  // Sample data - in real app, this would come from API
   useEffect(() => {
-    const sampleUsers: User[] = [
-      {
-        id: 1,
-        username: 'john.doe',
-        email: 'john.doe@company.com',
-        first_name: 'John',
-        last_name: 'Doe',
-        role_id: 1,
-        role_name: 'Admin',
-        is_active: true,
-        last_login: '2024-01-15T10:30:00Z',
-        created_at: '2024-01-01T00:00:00Z'
-      },
-      {
-        id: 2,
-        username: 'jane.smith',
-        email: 'jane.smith@company.com',
-        first_name: 'Jane',
-        last_name: 'Smith',
-        role_id: 2,
-        role_name: 'Manager',
-        is_active: true,
-        last_login: '2024-01-15T09:15:00Z',
-        created_at: '2024-01-02T00:00:00Z'
-      },
-      {
-        id: 3,
-        username: 'mike.johnson',
-        email: 'mike.johnson@company.com',
-        first_name: 'Mike',
-        last_name: 'Johnson',
-        role_id: 3,
-        role_name: 'Employee',
-        is_active: true,
-        last_login: '2024-01-14T16:45:00Z',
-        created_at: '2024-01-03T00:00:00Z'
-      },
-      {
-        id: 4,
-        username: 'sarah.wilson',
-        email: 'sarah.wilson@company.com',
-        first_name: 'Sarah',
-        last_name: 'Wilson',
-        role_id: 3,
-        role_name: 'Employee',
-        is_active: false,
-        last_login: '2024-01-10T14:20:00Z',
-        created_at: '2024-01-04T00:00:00Z'
-      }
-    ];
-
-    const sampleRoles: Role[] = [
-      { id: 1, name: 'Admin', description: 'Full system access' },
-      { id: 2, name: 'Manager', description: 'Management level access' },
-      { id: 3, name: 'Employee', description: 'Basic employee access' }
-    ];
-
-    setUsers(sampleUsers);
-    setRoles(sampleRoles);
-    setLoading(false);
+    fetchData();
   }, []);
+
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      const [{ data: usersData }, { data: rolesData }] = await Promise.all([
+        supabase.from('users').select('id, username, email, first_name, last_name, role_id, role_name, is_active, last_login, created_at'),
+        supabase.from('roles').select('id, name, description')
+      ]);
+      const rolesById = new Map((rolesData || []).map(r => [r.id, r.name]));
+      setUsers((usersData || []).map(u => ({ ...u, role_name: u.role_name || rolesById.get(u.role_id || 0) || 'Employee' })) as User[]);
+      setRoles((rolesData || []) as Role[]);
+    } catch (e) {
+      console.error('Error loading users/roles', e);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const filteredUsers = users.filter(user => {
     const matchesSearch = user.first_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -114,10 +73,13 @@ export default function UserManagement() {
     setShowAddModal(true);
   };
 
-  const handleDeleteUser = (userId: number) => {
-    if (window.confirm('Are you sure you want to delete this user?')) {
-      setUsers(users.filter(u => u.id !== userId));
-    }
+  const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
+  const handleDeleteUser = (userId: number) => setConfirmDeleteId(userId);
+  const doDelete = async () => {
+    if (!confirmDeleteId) return;
+    await supabase.from('users').delete().eq('id', confirmDeleteId);
+    setConfirmDeleteId(null);
+    fetchData();
   };
 
   const handleToggleUserStatus = (userId: number) => {
@@ -297,16 +259,42 @@ export default function UserManagement() {
           user={editingUser}
           roles={roles}
           onClose={() => setShowAddModal(false)}
-          onSave={(user) => {
+          onSave={async (user) => {
             if (editingUser) {
-              setUsers(users.map(u => u.id === user.id ? user : u));
+              await supabase.from('users').update({
+                username: user.username,
+                email: user.email,
+                first_name: user.first_name,
+                last_name: user.last_name,
+                role_id: user.role_id,
+                role_name: user.role_name,
+                is_active: user.is_active,
+              }).eq('id', user.id);
             } else {
-              setUsers([...users, { ...user, id: Date.now() }]);
+              await supabase.from('users').insert([{
+                username: user.username,
+                email: user.email,
+                first_name: user.first_name,
+                last_name: user.last_name,
+                role_id: user.role_id,
+                role_name: user.role_name,
+                is_active: user.is_active,
+                last_login: new Date().toISOString()
+              }]);
             }
             setShowAddModal(false);
+            fetchData();
           }}
         />
       )}
+
+      <ConfirmDeleteModal
+        isOpen={confirmDeleteId !== null}
+        title="Delete User"
+        message="Are you sure you want to delete this user? This action cannot be undone."
+        onCancel={() => setConfirmDeleteId(null)}
+        onConfirm={doDelete}
+      />
     </div>
   );
 }
@@ -325,6 +313,7 @@ function UserModal({ user, roles, onClose, onSave }: UserModalProps) {
     first_name: user?.first_name || '',
     last_name: user?.last_name || '',
     role_id: user?.role_id || roles[0]?.id || 1,
+    role_name: user?.role_name || '',
     is_active: user?.is_active ?? true,
   });
 
@@ -335,7 +324,7 @@ function UserModal({ user, roles, onClose, onSave }: UserModalProps) {
     const userData: User = {
       id: user?.id || 0,
       ...formData,
-      role_name: role?.name || 'Employee',
+      role_name: formData.role_name || role?.name || 'Employee',
       last_login: user?.last_login || new Date().toISOString(),
       created_at: user?.created_at || new Date().toISOString(),
     };
@@ -412,19 +401,30 @@ function UserModal({ user, roles, onClose, onSave }: UserModalProps) {
             />
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Role
-            </label>
-            <select
-              value={formData.role_id}
-              onChange={(e) => setFormData({...formData, role_id: parseInt(e.target.value)})}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-red-500 focus:border-transparent"
-            >
-              {roles.map(role => (
-                <option key={role.id} value={role.id}>{role.name}</option>
-              ))}
-            </select>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Role (ID)
+              </label>
+              <input
+                type="number"
+                value={formData.role_id}
+                onChange={(e) => setFormData({...formData, role_id: parseInt(e.target.value) || 0})}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-red-500 focus:border-transparent"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Role Name
+              </label>
+              <input
+                type="text"
+                value={formData.role_name}
+                onChange={(e) => setFormData({...formData, role_name: e.target.value})}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                placeholder="e.g., Admin, Manager"
+              />
+            </div>
           </div>
 
           <div className="flex items-center">

@@ -1,29 +1,20 @@
 import { useState, useEffect } from 'react';
 import { Package, Plus, Search, Edit, Trash2, Eye } from 'lucide-react';
-import { supabase } from '../../supabaseClient';
+import { simService, type Product } from '../../services/simService';
+import ProductFormModal from './ProductFormModal';
+import ProductDrawer from './ProductDrawer';
+import ConfirmDeleteModal from '@/react-app/components/crm/ConfirmDeleteModal';
 
-interface Product {
-  id: number;
-  name: string;
-  description: string;
-  category: string;
-  sku: string;
-  price: number;
-  cost_price: number;
-  stock_quantity: number;
-  min_stock_level: number;
-  max_stock_level: number;
-  unit_of_measure: string;
-  is_active: boolean;
-  supplier_id: number;
-  created_at: string;
-}
 
 export default function ProductCatalog() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
+  const [showAdd, setShowAdd] = useState(false);
+  const [drawerProductId, setDrawerProductId] = useState<number | null>(null);
+  const [drawerMode, setDrawerMode] = useState<'view' | 'edit'>('view');
+  const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
 
   useEffect(() => {
     fetchProducts();
@@ -32,14 +23,8 @@ export default function ProductCatalog() {
   const fetchProducts = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
-        .from('products')
-        .select('*')
-        .eq('is_active', true)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      setProducts(data || []);
+      const data = await simService.getProducts();
+      setProducts(data);
     } catch (error) {
       console.error('Error fetching products:', error);
     } finally {
@@ -57,19 +42,14 @@ export default function ProductCatalog() {
 
   const categories = [...new Set(products.map(product => product.category))];
 
-  const handleDelete = async (productId: number) => {
-    if (window.confirm('Are you sure you want to delete this product?')) {
-      try {
-        const { error } = await supabase
-          .from('products')
-          .update({ is_active: false })
-          .eq('id', productId);
-
-        if (error) throw error;
-        fetchProducts();
-      } catch (error) {
-        console.error('Error deleting product:', error);
-      }
+  const doDelete = async () => {
+    if (!confirmDeleteId) return;
+    try {
+      await simService.deleteProduct(confirmDeleteId);
+      setConfirmDeleteId(null);
+      fetchProducts();
+    } catch (error) {
+      console.error('Error deleting product:', error);
     }
   };
 
@@ -90,6 +70,7 @@ export default function ProductCatalog() {
           <p className="text-gray-600">Manage your product inventory and catalog</p>
         </div>
         <button
+          onClick={() => setShowAdd(true)}
           className="bg-primary hover:bg-primary-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
         >
           <Plus size={20} />
@@ -225,16 +206,13 @@ export default function ProductCatalog() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                     <div className="flex items-center gap-2">
-                      <button className="text-primary hover:text-primary-600">
+                      <button onClick={() => { setDrawerProductId(product.id); setDrawerMode('view'); }} className="text-primary hover:text-primary-600">
                         <Eye size={16} />
                       </button>
-                      <button className="text-blue-600 hover:text-blue-800">
+                      <button onClick={() => { setDrawerProductId(product.id); setDrawerMode('edit'); }} className="text-blue-600 hover:text-blue-800">
                         <Edit size={16} />
                       </button>
-                      <button 
-                        onClick={() => handleDelete(product.id)}
-                        className="text-red-600 hover:text-red-800"
-                      >
+                      <button onClick={() => setConfirmDeleteId(product.id)} className="text-red-600 hover:text-red-800">
                         <Trash2 size={16} />
                       </button>
                     </div>
@@ -254,7 +232,21 @@ export default function ProductCatalog() {
         )}
       </div>
 
-      {/* Add Product Modal would go here */}
+      <ProductFormModal isOpen={showAdd} onClose={() => setShowAdd(false)} onCreated={fetchProducts} />
+      <ProductDrawer
+        isOpen={drawerProductId !== null}
+        productId={drawerProductId}
+        mode={drawerMode}
+        onClose={() => setDrawerProductId(null)}
+        onSaved={fetchProducts}
+      />
+      <ConfirmDeleteModal
+        isOpen={confirmDeleteId !== null}
+        title="Delete Product"
+        message="Are you sure you want to archive this product?"
+        onCancel={() => setConfirmDeleteId(null)}
+        onConfirm={doDelete}
+      />
     </div>
   );
 }

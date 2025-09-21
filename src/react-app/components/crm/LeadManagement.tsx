@@ -1,26 +1,11 @@
 import { useState, useEffect } from 'react';
 import { UserPlus, Plus, Search, Eye, Edit, Trash2, Mail, Phone, Building, Calendar } from 'lucide-react';
-import { supabase } from '../../supabaseClient';
+import { crmService, type Lead } from '../../services/crmService';
+import LeadFormModal from './LeadFormModal';
+import LeadDrawer from './LeadDrawer';
+import ConfirmDeleteModal from './ConfirmDeleteModal';
+import FollowUpFormModal from './FollowUpFormModal';
 
-interface Lead {
-  id: number;
-  name: string;
-  email: string;
-  phone: string;
-  company: string;
-  job_title: string;
-  source: string;
-  value: number;
-  probability: number;
-  stage: string;
-  assigned_to: string;
-  customer_id: number;
-  next_follow_up: string;
-  tags: string;
-  notes: string;
-  created_at: string;
-  updated_at: string;
-}
 
 export default function LeadManagement() {
   const [leads, setLeads] = useState<Lead[]>([]);
@@ -28,6 +13,11 @@ export default function LeadManagement() {
   const [searchTerm, setSearchTerm] = useState('');
   const [stageFilter, setStageFilter] = useState('all');
   const [sourceFilter, setSourceFilter] = useState('all');
+  const [showAdd, setShowAdd] = useState(false);
+  const [drawerLeadId, setDrawerLeadId] = useState<number | null>(null);
+  const [drawerMode, setDrawerMode] = useState<'view' | 'edit'>('view');
+  const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
+  const [followUpLeadId, setFollowUpLeadId] = useState<number | null>(null);
 
   useEffect(() => {
     fetchLeads();
@@ -36,13 +26,8 @@ export default function LeadManagement() {
   const fetchLeads = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
-        .from('leads')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      setLeads(data || []);
+      const data = await crmService.getLeads();
+      setLeads(data);
     } catch (error) {
       console.error('Error fetching leads:', error);
     } finally {
@@ -82,19 +67,14 @@ export default function LeadManagement() {
     return 'text-red-600';
   };
 
-  const handleDelete = async (leadId: number) => {
-    if (window.confirm('Are you sure you want to delete this lead?')) {
-      try {
-        const { error } = await supabase
-          .from('leads')
-          .delete()
-          .eq('id', leadId);
-
-        if (error) throw error;
-        fetchLeads();
-      } catch (error) {
-        console.error('Error deleting lead:', error);
-      }
+  const doDelete = async () => {
+    if (!confirmDeleteId) return;
+    try {
+      await crmService.deleteLead(confirmDeleteId);
+      setConfirmDeleteId(null);
+      fetchLeads();
+    } catch (error) {
+      console.error('Error deleting lead:', error);
     }
   };
 
@@ -115,6 +95,7 @@ export default function LeadManagement() {
           <p className="text-gray-600">Track and manage your sales leads through the pipeline</p>
         </div>
         <button
+          onClick={() => setShowAdd(true)}
           className="bg-primary hover:bg-primary-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
         >
           <Plus size={20} />
@@ -286,17 +267,17 @@ export default function LeadManagement() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                     <div className="flex items-center gap-2">
-                      <button className="text-primary hover:text-primary-600">
+                      <button onClick={() => { setDrawerLeadId(lead.id); setDrawerMode('view'); }} className="text-primary hover:text-primary-600">
                         <Eye size={16} />
                       </button>
-                      <button className="text-blue-600 hover:text-blue-800">
+                      <button onClick={() => { setDrawerLeadId(lead.id); setDrawerMode('edit'); }} className="text-blue-600 hover:text-blue-800">
                         <Edit size={16} />
                       </button>
-                      <button 
-                        onClick={() => handleDelete(lead.id)}
-                        className="text-red-600 hover:text-red-800"
-                      >
+                      <button onClick={() => setConfirmDeleteId(lead.id)} className="text-red-600 hover:text-red-800">
                         <Trash2 size={16} />
+                      </button>
+                      <button onClick={() => setFollowUpLeadId(lead.id)} className="text-green-600 hover:text-green-800" title="Schedule Follow-up">
+                        <Calendar size={16} />
                       </button>
                     </div>
                   </td>
@@ -315,7 +296,31 @@ export default function LeadManagement() {
         )}
       </div>
 
-      {/* Add Lead Modal would go here */}
+      <LeadFormModal
+        isOpen={showAdd}
+        onClose={() => setShowAdd(false)}
+        onCreated={fetchLeads}
+      />
+      <LeadDrawer
+        isOpen={drawerLeadId !== null}
+        leadId={drawerLeadId}
+        mode={drawerMode}
+        onClose={() => setDrawerLeadId(null)}
+        onSaved={fetchLeads}
+      />
+      <ConfirmDeleteModal
+        isOpen={confirmDeleteId !== null}
+        title="Delete Lead"
+        message="Are you sure you want to delete this lead? This action cannot be undone."
+        onCancel={() => setConfirmDeleteId(null)}
+        onConfirm={doDelete}
+      />
+      <FollowUpFormModal
+        isOpen={followUpLeadId !== null}
+        leadId={followUpLeadId}
+        onClose={() => setFollowUpLeadId(null)}
+        onCreated={fetchLeads}
+      />
     </div>
   );
 }

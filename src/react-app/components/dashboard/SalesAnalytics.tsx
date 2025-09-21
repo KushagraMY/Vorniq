@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { 
   TrendingUp, 
   DollarSign, 
@@ -8,42 +8,57 @@ import {
   Filter
 } from 'lucide-react';
 import { XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, AreaChart, Area } from 'recharts';
-
-const salesData = [
-  { month: 'Jan', sales: 65000, orders: 150, customers: 120 },
-  { month: 'Feb', sales: 78000, orders: 180, customers: 145 },
-  { month: 'Mar', sales: 85000, orders: 200, customers: 165 },
-  { month: 'Apr', sales: 92000, orders: 220, customers: 180 },
-  { month: 'May', sales: 88000, orders: 195, customers: 170 },
-  { month: 'Jun', sales: 95000, orders: 235, customers: 195 },
-];
-
-const dailySales = [
-  { day: 'Mon', sales: 12000 },
-  { day: 'Tue', sales: 15000 },
-  { day: 'Wed', sales: 18000 },
-  { day: 'Thu', sales: 14000 },
-  { day: 'Fri', sales: 22000 },
-  { day: 'Sat', sales: 25000 },
-  { day: 'Sun', sales: 19000 },
-];
-
-const topSalesReps = [
-  { name: 'Sarah Johnson', sales: 125000, deals: 28, conversion: 85 },
-  { name: 'Mike Chen', sales: 115000, deals: 32, conversion: 78 },
-  { name: 'Emma Wilson', sales: 108000, deals: 25, conversion: 92 },
-  { name: 'David Brown', sales: 98000, deals: 30, conversion: 72 },
-  { name: 'Lisa Garcia', sales: 87000, deals: 22, conversion: 88 },
-];
+import { dashboardService, type SalesData, type TopSalesRep } from '../../services/dashboardService';
 
 export default function SalesAnalytics() {
   const [dateRange, setDateRange] = useState('6months');
   const [selectedMetric, setSelectedMetric] = useState('sales');
+  const [salesData, setSalesData] = useState<SalesData[]>([]);
+  const [topSalesReps, setTopSalesReps] = useState<TopSalesRep[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        const [sales, reps] = await Promise.all([
+          dashboardService.getSalesData(),
+          dashboardService.getTopSalesReps(),
+        ]);
+        
+        setSalesData(sales);
+        setTopSalesReps(reps);
+      } catch (error) {
+        console.error('Error fetching sales data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  // Calculate metrics from real data
+  const totalSales = salesData.reduce((sum, item) => sum + item.sales, 0);
+  const totalOrders = salesData.reduce((sum, item) => sum + item.orders, 0);
+  const totalCustomers = salesData.reduce((sum, item) => sum + item.customers, 0);
+  const avgOrderValue = totalOrders > 0 ? totalSales / totalOrders : 0;
+
+  // Mock daily sales data (this would need more granular data from database)
+  const dailySales = [
+    { day: 'Mon', sales: Math.floor(totalSales / 30) },
+    { day: 'Tue', sales: Math.floor(totalSales / 28) },
+    { day: 'Wed', sales: Math.floor(totalSales / 26) },
+    { day: 'Thu', sales: Math.floor(totalSales / 24) },
+    { day: 'Fri', sales: Math.floor(totalSales / 22) },
+    { day: 'Sat', sales: Math.floor(totalSales / 20) },
+    { day: 'Sun', sales: Math.floor(totalSales / 18) },
+  ];
 
   const salesMetrics = [
     {
       title: 'Total Sales',
-      value: '₹5.48M',
+      value: `₹${(totalSales / 100000).toFixed(1)}L`,
       change: '+12.5%',
       changeType: 'positive',
       icon: DollarSign,
@@ -52,7 +67,7 @@ export default function SalesAnalytics() {
     },
     {
       title: 'Total Orders',
-      value: '1,280',
+      value: totalOrders.toLocaleString(),
       change: '+8.3%',
       changeType: 'positive',
       icon: ShoppingCart,
@@ -60,8 +75,8 @@ export default function SalesAnalytics() {
       bgColor: 'bg-blue-50',
     },
     {
-      title: 'New Customers',
-      value: '975',
+      title: 'Total Customers',
+      value: totalCustomers.toLocaleString(),
       change: '+15.2%',
       changeType: 'positive',
       icon: Users,
@@ -70,7 +85,7 @@ export default function SalesAnalytics() {
     },
     {
       title: 'Avg Order Value',
-      value: '₹4,281',
+      value: `₹${Math.round(avgOrderValue).toLocaleString()}`,
       change: '+3.8%',
       changeType: 'positive',
       icon: TrendingUp,
@@ -83,6 +98,24 @@ export default function SalesAnalytics() {
     // Export logic will be implemented here
     console.log('Exporting sales analytics...');
   };
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <h2 className="text-2xl font-bold text-gray-900">Sales Analytics</h2>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {[...Array(4)].map((_, idx) => (
+            <div key={idx} className="border-2 border-gray-200 rounded-xl p-6 animate-pulse">
+              <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
+              <div className="h-8 bg-gray-200 rounded w-1/2"></div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

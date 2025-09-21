@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { ArrowLeft, Package, FileText, ShoppingCart, AlertTriangle, TrendingUp, Plus, Warehouse } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { ArrowLeft, Package, FileText, ShoppingCart, AlertTriangle, TrendingUp, Warehouse, RefreshCw } from 'lucide-react';
 import { useNavigate } from 'react-router';
 import { useSubscription } from '@/react-app/hooks/useSubscription';
 import PaywallOverlay from '@/react-app/components/PaywallOverlay';
@@ -10,12 +10,14 @@ import PurchaseOrderManagement from '@/react-app/components/sim/PurchaseOrderMan
 import StockManagement from '@/react-app/components/sim/StockManagement';
 import StockAlerts from '@/react-app/components/sim/StockAlerts';
 import Header from '@/react-app/components/Header';
+import { simService, type SIMStats, type RecentSale, type RecentAlert } from '../services/simService';
 
 type SIMView = 'dashboard' | 'products' | 'quotations' | 'invoices' | 'purchase-orders' | 'stock' | 'alerts';
 
 export default function SIM() {
   const [activeView, setActiveView] = useState<SIMView>('dashboard');
   const [showPaywall, setShowPaywall] = useState(false);
+  const [dashboardKey, setDashboardKey] = useState(0); // Key to force dashboard refresh
   const { hasActiveSubscription, subscribedServices } = useSubscription();
   const navigate = useNavigate();
 
@@ -26,6 +28,10 @@ export default function SIM() {
       setShowPaywall(true);
     } else {
       setActiveView(view);
+      // If navigating back to dashboard, refresh the data
+      if (view === 'dashboard') {
+        setDashboardKey(prev => prev + 1);
+      }
     }
   };
 
@@ -54,14 +60,11 @@ export default function SIM() {
       case 'alerts':
         return <StockAlerts />;
       default:
-        return <SIMDashboard onViewChange={setActiveView} />;
+        return <SIMDashboard key={dashboardKey} onViewChange={setActiveView} />;
     }
   };
 
-  if (!hasAccessToSIM) {
-    navigate('/preview/sim');
-    return null;
-  }
+  // Allow rendering to show paywall overlay when accessing locked features
 
   return (
     <div className="min-h-screen bg-background">
@@ -82,10 +85,7 @@ export default function SIM() {
               <div className="h-6 w-px bg-gray-300" />
               <h1 className="text-2xl font-bold text-text-primary">Sales & Inventory Management</h1>
             </div>
-            <button className="bg-accent hover:bg-accent-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors">
-              <Plus size={18} />
-              Quick Add
-            </button>
+            
           </div>
         </div>
 
@@ -126,6 +126,7 @@ export default function SIM() {
         {showPaywall && (
           <PaywallOverlay
             serviceName="Sales & Inventory Management"
+            serviceId={3}
             onClose={() => setShowPaywall(false)}
           />
         )}
@@ -135,11 +136,73 @@ export default function SIM() {
 }
 
 function SIMDashboard({ onViewChange }: { onViewChange: (view: SIMView) => void }) {
-  const stats = [
-    { title: 'Total Products', value: '1,245', change: '+12%', color: 'text-green-600' },
-    { title: 'Low Stock Items', value: '23', change: '-8%', color: 'text-red-600' },
-    { title: 'Monthly Revenue', value: '₹2.4M', change: '+18%', color: 'text-blue-600' },
-    { title: 'Pending Orders', value: '89', change: '+5%', color: 'text-orange-600' },
+  const [stats, setStats] = useState<SIMStats>({
+    totalProducts: 0,
+    lowStockCount: 0,
+    monthlyRevenue: 0,
+    pendingOrdersCount: 0,
+  });
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [recentSales, setRecentSales] = useState<RecentSale[]>([]);
+  const [recentAlerts, setRecentAlerts] = useState<RecentAlert[]>([]);
+
+  const loadDashboard = async (isRefresh = false) => {
+    try {
+      if (isRefresh) {
+        setRefreshing(true);
+      } else {
+        setLoading(true);
+      }
+      
+      // Debug database data first
+      await simService.debugDatabaseData();
+      
+      const [statsData, recentSalesData, recentAlertsData] = await Promise.all([
+        simService.getSIMStats(),
+        simService.getRecentSales(),
+        simService.getRecentAlerts(),
+      ]);
+
+      console.log('Dashboard data loaded:', {
+        stats: statsData,
+        sales: recentSalesData.length,
+        alerts: recentAlertsData.length
+      });
+
+      setStats(statsData);
+      setRecentSales(recentSalesData);
+      setRecentAlerts(recentAlertsData);
+    } catch (err) {
+      console.error('Error loading SIM dashboard:', err);
+      setStats({
+        totalProducts: 0,
+        lowStockCount: 0,
+        monthlyRevenue: 0,
+        pendingOrdersCount: 0,
+      });
+      setRecentSales([]);
+      setRecentAlerts([]);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  useEffect(() => {
+    loadDashboard();
+  }, []);
+
+  // Refresh dashboard data
+  const handleRefresh = () => {
+    loadDashboard(true);
+  };
+
+  const statsData = [
+    { title: 'Total Products', value: stats.totalProducts.toLocaleString(), change: '+8.2%', color: 'text-green-600' },
+    { title: 'Low Stock Items', value: stats.lowStockCount.toString(), change: '-2.1%', color: 'text-red-600' },
+    { title: 'Monthly Revenue', value: `₹${stats.monthlyRevenue.toLocaleString()}`, change: '+12.5%', color: 'text-blue-600' },
+    { title: 'Pending Orders', value: stats.pendingOrdersCount.toString(), change: '+3.4%', color: 'text-orange-600' },
   ];
 
   const quickActions = [
@@ -149,14 +212,48 @@ function SIMDashboard({ onViewChange }: { onViewChange: (view: SIMView) => void 
     { title: 'Purchase Order', icon: ShoppingCart, action: () => onViewChange('purchase-orders') },
   ];
 
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <h2 className="text-xl font-semibold text-gray-900 mb-6">Sales & Inventory Overview</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          {[...Array(4)].map((_, idx) => (
+            <div key={idx} className="bg-background-light p-6 rounded-xl shadow-sm border border-gray-200 animate-pulse">
+              <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
+              <div className="h-8 bg-gray-200 rounded w-1/2"></div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-xl font-semibold text-gray-900 mb-6">Sales & Inventory Overview</h2>
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-xl font-semibold text-gray-900">Sales & Inventory Overview</h2>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => simService.debugDatabaseData()}
+              className="flex items-center gap-2 px-3 py-2 text-sm bg-blue-50 border border-blue-300 text-blue-700 rounded-lg hover:bg-blue-100 transition-colors"
+            >
+              Debug Data
+            </button>
+            <button
+              onClick={handleRefresh}
+              disabled={refreshing}
+              className="flex items-center gap-2 px-3 py-2 text-sm bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              <RefreshCw size={16} className={refreshing ? 'animate-spin' : ''} />
+              {refreshing ? 'Refreshing...' : 'Refresh'}
+            </button>
+          </div>
+        </div>
         
         {/* Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          {stats.map((stat, index) => (
+          {statsData.map((stat, index) => (
             <div key={index} className="bg-background-light p-6 rounded-xl shadow-sm border border-gray-200">
               <div className="flex items-center justify-between">
                 <div>
@@ -198,18 +295,17 @@ function SIMDashboard({ onViewChange }: { onViewChange: (view: SIMView) => void 
           <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Recent Sales</h3>
             <div className="space-y-3">
-              {[
-                { item: 'MacBook Pro 13"', amount: '₹1,29,900', customer: 'Tech Corp Ltd', time: '2 hours ago' },
-                { item: 'Office Chair Premium', amount: '₹18,500', customer: 'StartUp Inc', time: '5 hours ago' },
-                { item: 'Wireless Mouse Set', amount: '₹2,800', customer: 'Design Studio', time: '1 day ago' },
-              ].map((sale, index) => (
+              {recentSales.length === 0 && (
+                <p className="text-sm text-gray-500">No recent sales</p>
+              )}
+              {recentSales.map((sale, index) => (
                 <div key={index} className="flex items-center justify-between border-b border-gray-100 pb-3">
                   <div>
                     <p className="font-medium text-gray-900">{sale.item}</p>
                     <p className="text-sm text-gray-600">{sale.customer}</p>
                   </div>
                   <div className="text-right">
-                    <p className="font-medium text-green-600">{sale.amount}</p>
+                    <p className="font-medium text-green-600">₹{(sale.amount || 0).toLocaleString()}</p>
                     <p className="text-sm text-gray-500">{sale.time}</p>
                   </div>
                 </div>
@@ -220,11 +316,10 @@ function SIMDashboard({ onViewChange }: { onViewChange: (view: SIMView) => void 
           <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Stock Alerts</h3>
             <div className="space-y-3">
-              {[
-                { product: 'iPhone 15 Pro', current: '5', minimum: '20', status: 'critical' },
-                { product: 'Samsung Galaxy S24', current: '12', minimum: '15', status: 'warning' },
-                { product: 'Dell XPS 13', current: '8', minimum: '10', status: 'warning' },
-              ].map((alert, index) => (
+              {recentAlerts.length === 0 && (
+                <p className="text-sm text-gray-500">No recent alerts</p>
+              )}
+              {recentAlerts.map((alert, index) => (
                 <div key={index} className="flex items-center justify-between">
                   <div>
                     <p className="font-medium text-gray-900">{alert.product}</p>

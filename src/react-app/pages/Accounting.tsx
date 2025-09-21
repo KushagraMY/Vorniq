@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ArrowLeft, Calculator, DollarSign, FileText, Bell, CreditCard, Plus, TrendingUp } from 'lucide-react';
 import { useNavigate } from 'react-router';
 import { useSubscription } from '@/react-app/hooks/useSubscription';
@@ -9,6 +9,7 @@ import TaxCalculations from '@/react-app/components/accounting/TaxCalculations';
 import PaymentReminders from '@/react-app/components/accounting/PaymentReminders';
 import BankReconciliation from '@/react-app/components/accounting/BankReconciliation';
 import Header from '@/react-app/components/Header';
+import { accountingService, type AccountingStats, type RecentTransaction, type UpcomingPayment } from '../services/accountingService';
 
 type AccountingView = 'dashboard' | 'income-expense' | 'profit-loss' | 'tax-calculations' | 'payment-reminders' | 'bank-reconciliation';
 
@@ -54,10 +55,7 @@ export default function Accounting() {
     }
   };
 
-  if (!hasAccessToAccounting) {
-    navigate('/preview/accounting');
-    return null;
-  }
+  // Allow rendering to show paywall overlay when accessing locked features
 
   return (
     <div className="min-h-screen bg-background">
@@ -78,10 +76,7 @@ export default function Accounting() {
               <div className="h-6 w-px bg-gray-300" />
               <h1 className="text-2xl font-bold text-text-primary">Accounting & Finance</h1>
             </div>
-            <button className="bg-primary hover:bg-primary-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors">
-              <Plus size={18} />
-              Quick Add
-            </button>
+            
           </div>
         </div>
 
@@ -122,6 +117,7 @@ export default function Accounting() {
         {showPaywall && (
           <PaywallOverlay
             serviceName="Accounting & Finance (Basic)"
+            serviceId={5}
             onClose={() => setShowPaywall(false)}
           />
         )}
@@ -131,12 +127,38 @@ export default function Accounting() {
 }
 
 function AccountingDashboard({ onViewChange }: { onViewChange: (view: AccountingView) => void }) {
-  const stats = [
-    { title: 'Total Income', value: '₹8,45,000', change: '+12.5%', color: 'text-green-600' },
-    { title: 'Total Expenses', value: '₹5,23,000', change: '+8.3%', color: 'text-red-600' },
-    { title: 'Net Profit', value: '₹3,22,000', change: '+18.7%', color: 'text-blue-600' },
-    { title: 'Pending Payments', value: '₹1,15,000', change: '-5.2%', color: 'text-orange-600' },
-  ];
+  const [stats, setStats] = useState<AccountingStats>({
+    totalIncome: 0,
+    totalExpenses: 0,
+    netProfit: 0,
+    pendingPayments: 0,
+  });
+  const [recentTransactions, setRecentTransactions] = useState<RecentTransaction[]>([]);
+  const [upcomingPayments, setUpcomingPayments] = useState<UpcomingPayment[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        const [statsData, transactions, payments] = await Promise.all([
+          accountingService.getAccountingStats(),
+          accountingService.getRecentTransactions(),
+          accountingService.getUpcomingPayments(),
+        ]);
+        
+        setStats(statsData);
+        setRecentTransactions(transactions);
+        setUpcomingPayments(payments);
+      } catch (error) {
+        console.error('Error fetching accounting dashboard data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
 
   const quickActions = [
     { title: 'Add Income', icon: DollarSign, action: () => onViewChange('income-expense') },
@@ -145,18 +167,28 @@ function AccountingDashboard({ onViewChange }: { onViewChange: (view: Accounting
     { title: 'Tax Calculator', icon: Calculator, action: () => onViewChange('tax-calculations') },
   ];
 
-  const recentTransactions = [
-    { type: 'income', description: 'Client Payment - Web Development', amount: '₹75,000', date: '2 hours ago' },
-    { type: 'expense', description: 'Office Rent - January', amount: '₹25,000', date: '1 day ago' },
-    { type: 'income', description: 'Consulting Services - ABC Corp', amount: '₹45,000', date: '2 days ago' },
-    { type: 'expense', description: 'Software Subscription - Adobe', amount: '₹3,500', date: '3 days ago' },
+  const statsData = [
+    { title: 'Total Income', value: `₹${stats.totalIncome.toLocaleString()}`, change: '+12.5%', color: 'text-green-600' },
+    { title: 'Total Expenses', value: `₹${stats.totalExpenses.toLocaleString()}`, change: '+8.3%', color: 'text-red-600' },
+    { title: 'Net Profit', value: `₹${stats.netProfit.toLocaleString()}`, change: '+18.7%', color: 'text-blue-600' },
+    { title: 'Pending Payments', value: `₹${stats.pendingPayments.toLocaleString()}`, change: '-5.2%', color: 'text-orange-600' },
   ];
 
-  const upcomingPayments = [
-    { type: 'receivable', client: 'TechStart Solutions', amount: '₹95,000', due: 'Due Tomorrow' },
-    { type: 'payable', vendor: 'Office Supplies Co.', amount: '₹12,000', due: 'Due in 3 days' },
-    { type: 'receivable', client: 'Digital Agency Ltd', amount: '₹67,000', due: 'Due in 5 days' },
-  ];
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <h2 className="text-xl font-semibold text-gray-900 mb-6">Financial Overview</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          {[...Array(4)].map((_, idx) => (
+            <div key={idx} className="bg-background-light p-6 rounded-xl shadow-sm border border-gray-200 animate-pulse">
+              <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
+              <div className="h-8 bg-gray-200 rounded w-1/2"></div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -165,7 +197,7 @@ function AccountingDashboard({ onViewChange }: { onViewChange: (view: Accounting
         
         {/* Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          {stats.map((stat, index) => (
+          {statsData.map((stat, index) => (
             <div key={index} className="bg-background-light p-6 rounded-xl shadow-sm border border-gray-200">
               <div className="flex items-center justify-between">
                 <div>

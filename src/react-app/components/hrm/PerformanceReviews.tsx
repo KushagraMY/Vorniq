@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Star, Calendar, User, Plus, Edit, Trash2, TrendingUp } from 'lucide-react';
+import { supabase } from '../../supabaseClient';
+import ReviewFormModal from './ReviewFormModal';
 
 interface PerformanceReview {
   id: number;
@@ -27,7 +29,7 @@ export default function PerformanceReviews() {
   const [reviews, setReviews] = useState<PerformanceReview[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState('all');
-  const [, setShowAddModal] = useState(false);
+  const [showAddModal, setShowAddModal] = useState(false);
 
   useEffect(() => {
     fetchReviews();
@@ -35,9 +37,8 @@ export default function PerformanceReviews() {
 
   const fetchReviews = async () => {
     try {
-      const response = await fetch('/api/hrm/performance-reviews');
-      const data = await response.json();
-      setReviews(data);
+      const { data } = await supabase.from('performance_reviews').select('*').order('created_at', { ascending: false });
+      setReviews(data || []);
     } catch (error) {
       console.error('Error fetching performance reviews:', error);
     } finally {
@@ -267,6 +268,8 @@ export default function PerformanceReviews() {
           <p className="text-gray-500">No performance reviews found</p>
         </div>
       )}
+
+      <ReviewFormModal isOpen={showAddModal} onClose={() => setShowAddModal(false)} onCreated={fetchReviews} />
     </div>
   );
 }

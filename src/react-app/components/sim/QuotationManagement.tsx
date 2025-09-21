@@ -1,29 +1,20 @@
 import { useState, useEffect } from 'react';
 import { FileText, Plus, Search, Eye, Edit, Trash2, Send, Check, X } from 'lucide-react';
-import { supabase } from '../../supabaseClient';
+import { simService, type Quotation } from '../../services/simService';
+import QuotationFormModal from './QuotationFormModal';
+import QuotationDrawer from './QuotationDrawer';
+import ConfirmDeleteModal from '@/react-app/components/crm/ConfirmDeleteModal';
 
-interface Quotation {
-  id: number;
-  quote_number: string;
-  customer_name: string;
-  customer_email: string;
-  customer_phone: string;
-  quote_date: string;
-  valid_until: string;
-  subtotal: number;
-  tax_amount: number;
-  discount_amount: number;
-  total_amount: number;
-  status: string;
-  notes: string;
-  created_at: string;
-}
 
 export default function QuotationManagement() {
   const [quotations, setQuotations] = useState<Quotation[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [showAdd, setShowAdd] = useState(false);
+  const [drawerQuotationId, setDrawerQuotationId] = useState<number | null>(null);
+  const [drawerMode, setDrawerMode] = useState<'view' | 'edit'>('view');
+  const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
 
   useEffect(() => {
     fetchQuotations();
@@ -32,13 +23,8 @@ export default function QuotationManagement() {
   const fetchQuotations = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
-        .from('quotations')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      setQuotations(data || []);
+      const data = await simService.getQuotations();
+      setQuotations(data);
     } catch (error) {
       console.error('Error fetching quotations:', error);
     } finally {
@@ -74,19 +60,14 @@ export default function QuotationManagement() {
     }
   };
 
-  const handleDelete = async (quotationId: number) => {
-    if (window.confirm('Are you sure you want to delete this quotation?')) {
-      try {
-        const { error } = await supabase
-          .from('quotations')
-          .delete()
-          .eq('id', quotationId);
-
-        if (error) throw error;
-        fetchQuotations();
-      } catch (error) {
-        console.error('Error deleting quotation:', error);
-      }
+  const doDelete = async () => {
+    if (!confirmDeleteId) return;
+    try {
+      await simService.deleteQuotation(confirmDeleteId);
+      setConfirmDeleteId(null);
+      fetchQuotations();
+    } catch (error) {
+      console.error('Error deleting quotation:', error);
     }
   };
 
@@ -107,6 +88,7 @@ export default function QuotationManagement() {
           <p className="text-gray-600">Create and manage customer quotations</p>
         </div>
         <button
+          onClick={() => setShowAdd(true)}
           className="bg-primary hover:bg-primary-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
         >
           <Plus size={20} />
@@ -227,16 +209,13 @@ export default function QuotationManagement() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                     <div className="flex items-center gap-2">
-                      <button className="text-primary hover:text-primary-600">
+                      <button onClick={() => { setDrawerQuotationId(quotation.id); setDrawerMode('view'); }} className="text-primary hover:text-primary-600">
                         <Eye size={16} />
                       </button>
-                      <button className="text-blue-600 hover:text-blue-800">
+                      <button onClick={() => { setDrawerQuotationId(quotation.id); setDrawerMode('edit'); }} className="text-blue-600 hover:text-blue-800">
                         <Edit size={16} />
                       </button>
-                      <button 
-                        onClick={() => handleDelete(quotation.id)}
-                        className="text-red-600 hover:text-red-800"
-                      >
+                      <button onClick={() => setConfirmDeleteId(quotation.id)} className="text-red-600 hover:text-red-800">
                         <Trash2 size={16} />
                       </button>
                     </div>
@@ -256,7 +235,21 @@ export default function QuotationManagement() {
         )}
       </div>
 
-      {/* Add Quotation Modal would go here */}
+      <QuotationFormModal isOpen={showAdd} onClose={() => setShowAdd(false)} onCreated={fetchQuotations} />
+      <QuotationDrawer
+        isOpen={drawerQuotationId !== null}
+        quotationId={drawerQuotationId}
+        mode={drawerMode}
+        onClose={() => setDrawerQuotationId(null)}
+        onSaved={fetchQuotations}
+      />
+      <ConfirmDeleteModal
+        isOpen={confirmDeleteId !== null}
+        title="Delete Quotation"
+        message="Are you sure you want to delete this quotation?"
+        onCancel={() => setConfirmDeleteId(null)}
+        onConfirm={doDelete}
+      />
     </div>
   );
 }

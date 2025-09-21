@@ -1,26 +1,10 @@
 import { useState, useEffect } from 'react';
 import { FileText, Plus, Search, Eye, Edit, Trash2, Download, Send, Check, Clock } from 'lucide-react';
-import { supabase } from '../../supabaseClient';
+import { simService, type Invoice } from '../../services/simService';
+import InvoiceFormModal from './InvoiceFormModal';
+import InvoiceDrawer from './InvoiceDrawer';
+import ConfirmDeleteModal from '@/react-app/components/crm/ConfirmDeleteModal';
 
-interface Invoice {
-  id: number;
-  invoice_number: string;
-  customer_name: string;
-  customer_email: string;
-  customer_phone: string;
-  customer_address: string;
-  invoice_date: string;
-  due_date: string;
-  subtotal: number;
-  tax_amount: number;
-  discount_amount: number;
-  total_amount: number;
-  paid_amount: number;
-  status: string;
-  payment_status: string;
-  notes: string;
-  created_at: string;
-}
 
 export default function InvoiceManagement() {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
@@ -28,6 +12,10 @@ export default function InvoiceManagement() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [paymentFilter, setPaymentFilter] = useState('all');
+  const [showAdd, setShowAdd] = useState(false);
+  const [drawerInvoiceId, setDrawerInvoiceId] = useState<number | null>(null);
+  const [drawerMode, setDrawerMode] = useState<'view' | 'edit'>('view');
+  const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
 
   useEffect(() => {
     fetchInvoices();
@@ -36,13 +24,8 @@ export default function InvoiceManagement() {
   const fetchInvoices = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
-        .from('invoices')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      setInvoices(data || []);
+      const data = await simService.getInvoices();
+      setInvoices(data);
     } catch (error) {
       console.error('Error fetching invoices:', error);
     } finally {
@@ -89,19 +72,14 @@ export default function InvoiceManagement() {
     }
   };
 
-  const handleDelete = async (invoiceId: number) => {
-    if (window.confirm('Are you sure you want to delete this invoice?')) {
-      try {
-        const { error } = await supabase
-          .from('invoices')
-          .delete()
-          .eq('id', invoiceId);
-
-        if (error) throw error;
-        fetchInvoices();
-      } catch (error) {
-        console.error('Error deleting invoice:', error);
-      }
+  const doDelete = async () => {
+    if (!confirmDeleteId) return;
+    try {
+      await simService.deleteInvoice(confirmDeleteId);
+      setConfirmDeleteId(null);
+      fetchInvoices();
+    } catch (error) {
+      console.error('Error deleting invoice:', error);
     }
   };
 
@@ -122,6 +100,7 @@ export default function InvoiceManagement() {
           <p className="text-gray-600">Create and manage customer invoices</p>
         </div>
         <button
+          onClick={() => setShowAdd(true)}
           className="bg-primary hover:bg-primary-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
         >
           <Plus size={20} />
@@ -262,19 +241,16 @@ export default function InvoiceManagement() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                     <div className="flex items-center gap-2">
-                      <button className="text-primary hover:text-primary-600">
+                      <button onClick={() => { setDrawerInvoiceId(invoice.id); setDrawerMode('view'); }} className="text-primary hover:text-primary-600">
                         <Eye size={16} />
                       </button>
-                      <button className="text-blue-600 hover:text-blue-800">
+                      <button onClick={() => { setDrawerInvoiceId(invoice.id); setDrawerMode('edit'); }} className="text-blue-600 hover:text-blue-800">
                         <Edit size={16} />
                       </button>
                       <button className="text-green-600 hover:text-green-800">
                         <Download size={16} />
                       </button>
-                      <button 
-                        onClick={() => handleDelete(invoice.id)}
-                        className="text-red-600 hover:text-red-800"
-                      >
+                      <button onClick={() => setConfirmDeleteId(invoice.id)} className="text-red-600 hover:text-red-800">
                         <Trash2 size={16} />
                       </button>
                     </div>
@@ -294,7 +270,21 @@ export default function InvoiceManagement() {
         )}
       </div>
 
-      {/* Add Invoice Modal would go here */}
+      <InvoiceFormModal isOpen={showAdd} onClose={() => setShowAdd(false)} onCreated={fetchInvoices} />
+      <InvoiceDrawer
+        isOpen={drawerInvoiceId !== null}
+        invoiceId={drawerInvoiceId}
+        mode={drawerMode}
+        onClose={() => setDrawerInvoiceId(null)}
+        onSaved={fetchInvoices}
+      />
+      <ConfirmDeleteModal
+        isOpen={confirmDeleteId !== null}
+        title="Delete Invoice"
+        message="Are you sure you want to delete this invoice?"
+        onCancel={() => setConfirmDeleteId(null)}
+        onConfirm={doDelete}
+      />
     </div>
   );
 }

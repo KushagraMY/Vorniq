@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { 
   DollarSign, 
   TrendingUp, 
@@ -9,34 +9,37 @@ import {
   Trash2
 } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, XAxis, YAxis, CartesianGrid, Tooltip, LineChart, Line } from 'recharts';
-
-const expenseData = [
-  { month: 'Jan', salary: 45000, rent: 15000, utilities: 8000, marketing: 12000, others: 5000 },
-  { month: 'Feb', salary: 48000, rent: 15000, utilities: 9000, marketing: 14000, others: 6000 },
-  { month: 'Mar', salary: 52000, rent: 15000, utilities: 7500, marketing: 16000, others: 4500 },
-  { month: 'Apr', salary: 55000, rent: 15000, utilities: 8500, marketing: 18000, others: 7000 },
-  { month: 'May', salary: 58000, rent: 15000, utilities: 9500, marketing: 15000, others: 5500 },
-  { month: 'Jun', salary: 60000, rent: 15000, utilities: 8000, marketing: 20000, others: 6000 },
-];
-
-const expenseCategories = [
-  { name: 'Salary & Benefits', value: 318000, color: '#3b82f6', percentage: 58 },
-  { name: 'Marketing', value: 95000, color: '#10b981', percentage: 17 },
-  { name: 'Rent & Utilities', value: 73000, color: '#f59e0b', percentage: 13 },
-  { name: 'Operations', value: 42000, color: '#ef4444', percentage: 8 },
-  { name: 'Others', value: 22000, color: '#8b5cf6', percentage: 4 },
-];
-
-const recentExpenses = [
-  { id: 1, date: '2024-01-15', category: 'Marketing', description: 'Google Ads Campaign', amount: 15000, status: 'Approved' },
-  { id: 2, date: '2024-01-14', category: 'Operations', description: 'Office Supplies', amount: 2500, status: 'Pending' },
-  { id: 3, date: '2024-01-13', category: 'Utilities', description: 'Electricity Bill', amount: 3200, status: 'Approved' },
-  { id: 4, date: '2024-01-12', category: 'Marketing', description: 'Social Media Tools', amount: 1800, status: 'Approved' },
-  { id: 5, date: '2024-01-11', category: 'Operations', description: 'Software License', amount: 8500, status: 'Pending' },
-];
+import { dashboardService, type ExpenseData, type ExpenseCategory, type RecentExpense } from '../../services/dashboardService';
 
 export default function ExpenseTracking() {
   const [selectedPeriod, setSelectedPeriod] = useState('6months');
+  const [expenseData, setExpenseData] = useState<ExpenseData[]>([]);
+  const [expenseCategories, setExpenseCategories] = useState<ExpenseCategory[]>([]);
+  const [recentExpenses, setRecentExpenses] = useState<RecentExpense[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        const [expenses, categories, recent] = await Promise.all([
+          dashboardService.getExpenseData(),
+          dashboardService.getExpenseCategories(),
+          dashboardService.getRecentExpenses(),
+        ]);
+        
+        setExpenseData(expenses);
+        setExpenseCategories(categories);
+        setRecentExpenses(recent);
+      } catch (error) {
+        console.error('Error fetching expense data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
 
   const totalExpenses = expenseCategories.reduce((sum, category) => sum + category.value, 0);
 
@@ -83,6 +86,24 @@ export default function ExpenseTracking() {
     // Export logic will be implemented here
     console.log('Exporting expense data...');
   };
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <h2 className="text-2xl font-bold text-gray-900">Expense Tracking</h2>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {[...Array(4)].map((_, idx) => (
+            <div key={idx} className="border-2 border-gray-200 rounded-xl p-6 animate-pulse">
+              <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
+              <div className="h-8 bg-gray-200 rounded w-1/2"></div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

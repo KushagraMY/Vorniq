@@ -1,91 +1,28 @@
 import { useState, useEffect } from 'react';
 import { Bell, Plus, DollarSign, AlertTriangle, CheckCircle, Clock } from 'lucide-react';
-
-interface PaymentReminder {
-  id: number;
-  type: 'receivable' | 'payable';
-  customerVendorName: string;
-  referenceType: string;
-  referenceId: string;
-  amount: number;
-  dueDate: string;
-  reminderDate: string;
-  status: 'pending' | 'overdue' | 'paid' | 'cancelled';
-  priority: 'low' | 'medium' | 'high';
-  notes?: string;
-  contactEmail?: string;
-  contactPhone?: string;
-}
+import { accountingService, type PaymentReminder } from '../../services/accountingService';
 
 export default function PaymentReminders() {
   const [reminders, setReminders] = useState<PaymentReminder[]>([]);
   const [showAddForm, setShowAddForm] = useState(false);
   const [selectedType, setSelectedType] = useState<'all' | 'receivable' | 'payable'>('all');
   const [selectedStatus, setSelectedStatus] = useState<'all' | 'pending' | 'overdue' | 'paid'>('all');
+  const [loading, setLoading] = useState(true);
 
-  // Mock data - in real app, this would come from API
   useEffect(() => {
-    const mockReminders: PaymentReminder[] = [
-      {
-        id: 1,
-        type: 'receivable',
-        customerVendorName: 'TechStart Solutions',
-        referenceType: 'Invoice',
-        referenceId: 'INV-2024-001',
-        amount: 95000,
-        dueDate: '2024-01-16',
-        reminderDate: '2024-01-15',
-        status: 'overdue',
-        priority: 'high',
-        contactEmail: 'accounts@techstart.com',
-        contactPhone: '+91 9876543210',
-        notes: 'Web development project payment due'
-      },
-      {
-        id: 2,
-        type: 'payable',
-        customerVendorName: 'Office Supplies Co.',
-        referenceType: 'Bill',
-        referenceId: 'BILL-2024-001',
-        amount: 12000,
-        dueDate: '2024-01-18',
-        reminderDate: '2024-01-17',
-        status: 'pending',
-        priority: 'medium',
-        contactEmail: 'billing@officesupplies.com',
-        notes: 'Monthly office supplies payment'
-      },
-      {
-        id: 3,
-        type: 'receivable',
-        customerVendorName: 'Digital Agency Ltd',
-        referenceType: 'Invoice',
-        referenceId: 'INV-2024-002',
-        amount: 67000,
-        dueDate: '2024-01-20',
-        reminderDate: '2024-01-19',
-        status: 'pending',
-        priority: 'medium',
-        contactEmail: 'finance@digitalagency.com',
-        contactPhone: '+91 9876543211',
-        notes: 'Consulting services payment'
-      },
-      {
-        id: 4,
-        type: 'payable',
-        customerVendorName: 'CloudTech Services',
-        referenceType: 'Subscription',
-        referenceId: 'SUB-2024-001',
-        amount: 8500,
-        dueDate: '2024-01-22',
-        reminderDate: '2024-01-21',
-        status: 'pending',
-        priority: 'low',
-        contactEmail: 'billing@cloudtech.com',
-        notes: 'Monthly cloud services subscription'
+    const fetchReminders = async () => {
+      try {
+        setLoading(true);
+        const data = await accountingService.getPaymentReminders();
+        setReminders(data);
+      } catch (error) {
+        console.error('Error fetching payment reminders:', error);
+      } finally {
+        setLoading(false);
       }
-    ];
-    setReminders(mockReminders);
+    };
+
+    fetchReminders();
   }, []);
 
   const AddReminderForm = ({ onSave, onCancel }: {
@@ -273,13 +210,14 @@ export default function PaymentReminders() {
     );
   };
 
-  const handleSave = (data: Partial<PaymentReminder>) => {
-    const newReminder = {
-      ...data,
-      id: Math.max(...reminders.map(r => r.id), 0) + 1
-    } as PaymentReminder;
-    setReminders([...reminders, newReminder]);
-    setShowAddForm(false);
+  const handleSave = async (data: Partial<PaymentReminder>) => {
+    try {
+      const newReminder = await accountingService.addPaymentReminder(data);
+      setReminders([...reminders, newReminder]);
+      setShowAddForm(false);
+    } catch (error) {
+      console.error('Error saving payment reminder:', error);
+    }
   };
 
   const filteredReminders = reminders.filter(reminder => {
@@ -318,6 +256,21 @@ export default function PaymentReminders() {
         return 'bg-gray-100 text-gray-800';
     }
   };
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+          {[...Array(4)].map((_, idx) => (
+            <div key={idx} className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 animate-pulse">
+              <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
+              <div className="h-8 bg-gray-200 rounded w-1/2"></div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

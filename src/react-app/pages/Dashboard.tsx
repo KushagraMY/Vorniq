@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ArrowLeft, BarChart3, TrendingUp, Download, FileText, Plus, DollarSign, Users, Target } from 'lucide-react';
+import { ArrowLeft, BarChart3, TrendingUp, Download, FileText, Plus, DollarSign, Users, Target, RefreshCw } from 'lucide-react';
 import { useNavigate } from 'react-router';
 import { useSubscription } from '@/react-app/hooks/useSubscription';
 import PaywallOverlay from '@/react-app/components/PaywallOverlay';
@@ -10,12 +10,14 @@ import ProfitAnalysis from '@/react-app/components/dashboard/ProfitAnalysis';
 import HROverview from '@/react-app/components/dashboard/HROverview';
 import ReportsCenter from '@/react-app/components/dashboard/ReportsCenter';
 import Header from '@/react-app/components/Header';
+import { dashboardService } from '../services/dashboardService';
 
 type DashboardView = 'overview' | 'sales' | 'expenses' | 'profits' | 'hr' | 'reports';
 
 export default function Dashboard() {
   const [activeView, setActiveView] = useState<DashboardView>('overview');
   const [showPaywall, setShowPaywall] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const { hasActiveSubscription, subscribedServices } = useSubscription();
   const navigate = useNavigate();
 
@@ -29,10 +31,20 @@ export default function Dashboard() {
     }
   };
 
-  if (!hasAccessToDashboard) {
-    navigate('/preview/dashboard');
-    return null;
-  }
+  const handleRefreshAllData = async () => {
+    setRefreshing(true);
+    try {
+      // Debug all modules to check data availability
+      await dashboardService.debugAllModules();
+      console.log('Dashboard data refreshed successfully');
+    } catch (error) {
+      console.error('Error refreshing dashboard data:', error);
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
+  // Allow rendering to show paywall overlay when accessing locked features
 
   const menuItems = [
     { id: 'overview', label: 'Overview', icon: BarChart3 },
@@ -80,13 +92,17 @@ export default function Dashboard() {
               <h1 className="text-2xl font-bold text-text-primary">Dashboard & Reports</h1>
             </div>
             <div className="flex items-center gap-3">
+              <button
+                onClick={handleRefreshAllData}
+                disabled={refreshing}
+                className="bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 px-4 py-2 rounded-lg flex items-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <RefreshCw size={18} className={refreshing ? 'animate-spin' : ''} />
+                {refreshing ? 'Refreshing...' : 'Refresh All Data'}
+              </button>
               <button className="bg-primary hover:bg-primary-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors">
                 <Download size={18} />
                 Export Data
-              </button>
-              <button className="bg-accent hover:bg-accent-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors">
-                <Plus size={18} />
-                Custom Report
               </button>
             </div>
           </div>
@@ -129,6 +145,7 @@ export default function Dashboard() {
         {showPaywall && (
           <PaywallOverlay
             serviceName="Dashboard & Reports"
+            serviceId={6}
             onClose={() => setShowPaywall(false)}
           />
         )}

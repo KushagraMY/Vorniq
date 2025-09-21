@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ArrowLeft, Users, Clock, DollarSign, UserPlus, Star, Plus } from 'lucide-react';
 import { useNavigate } from 'react-router';
 import { useSubscription } from '@/react-app/hooks/useSubscription';
@@ -9,6 +9,7 @@ import PayrollManagement from '@/react-app/components/hrm/PayrollManagement';
 import RecruitmentPipeline from '@/react-app/components/hrm/RecruitmentPipeline';
 import PerformanceReviews from '@/react-app/components/hrm/PerformanceReviews';
 import Header from '@/react-app/components/Header';
+import { hrmService, type HRMStats, type Employee, type PerformanceReview } from '../services/hrmService';
 
 type HRMView = 'dashboard' | 'employees' | 'attendance' | 'payroll' | 'recruitment' | 'performance';
 
@@ -28,10 +29,7 @@ export default function HRM() {
     }
   };
 
-  if (!hasAccessToHRM) {
-    navigate('/preview/hrm');
-    return null;
-  }
+  // Allow rendering to show paywall overlay when accessing locked features
 
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: Star },
@@ -78,10 +76,7 @@ export default function HRM() {
               <div className="h-6 w-px bg-gray-300" />
               <h1 className="text-2xl font-bold text-text-primary">Human Resource Management</h1>
             </div>
-            <button className="bg-accent hover:bg-accent-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors">
-              <Plus size={18} />
-              Quick Add
-            </button>
+            
           </div>
         </div>
 
@@ -122,6 +117,7 @@ export default function HRM() {
         {showPaywall && (
           <PaywallOverlay
             serviceName="Human Resource Management"
+            serviceId={2}
             onClose={() => setShowPaywall(false)}
           />
         )}
@@ -131,11 +127,64 @@ export default function HRM() {
 }
 
 function HRMDashboard({ onViewChange }: { onViewChange: (view: HRMView) => void }) {
-  const stats = [
-    { title: 'Total Employees', value: '156', change: '+8%', color: 'text-green-600' },
-    { title: 'Present Today', value: '142', change: '91%', color: 'text-blue-600' },
-    { title: 'Pending Leaves', value: '12', change: '-15%', color: 'text-orange-600' },
-    { title: 'Open Positions', value: '7', change: '+3', color: 'text-purple-600' },
+  const [stats, setStats] = useState<HRMStats>({
+    totalEmployees: 0,
+    presentToday: 0,
+    pendingLeaves: 0,
+    openPositions: 0,
+  });
+  const [loading, setLoading] = useState(true);
+  const [recentHires, setRecentHires] = useState<Employee[]>([]);
+  const [upcomingReviews, setUpcomingReviews] = useState<PerformanceReview[]>([]);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        const [statsData, recentHiresData, upcomingReviewsData] = await Promise.all([
+          hrmService.getHRMStats(),
+          hrmService.getRecentHires(),
+          hrmService.getUpcomingReviews(),
+        ]);
+        
+        setStats(statsData);
+        setRecentHires(recentHiresData);
+        setUpcomingReviews(upcomingReviewsData);
+      } catch (error) {
+        console.error('Error fetching HRM data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  const statsData = [
+    { 
+      title: 'Total Employees', 
+      value: stats.totalEmployees.toString(), 
+      change: '+5.2%', 
+      color: 'text-blue-600' 
+    },
+    { 
+      title: 'Present Today', 
+      value: stats.presentToday.toString(), 
+      change: '+2.1%', 
+      color: 'text-green-600' 
+    },
+    { 
+      title: 'Pending Leaves', 
+      value: stats.pendingLeaves.toString(), 
+      change: '-1.3%', 
+      color: 'text-orange-600' 
+    },
+    { 
+      title: 'Open Positions', 
+      value: stats.openPositions.toString(), 
+      change: '+0.8%', 
+      color: 'text-purple-600' 
+    },
   ];
 
   const quickActions = [
@@ -145,6 +194,22 @@ function HRMDashboard({ onViewChange }: { onViewChange: (view: HRMView) => void 
     { title: 'Schedule Interview', icon: UserPlus, action: () => onViewChange('recruitment') },
   ];
 
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <h2 className="text-xl font-semibold text-gray-900 mb-6">HR Dashboard Overview</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          {[...Array(4)].map((_, idx) => (
+            <div key={idx} className="bg-background-light p-6 rounded-xl shadow-sm border border-gray-200 animate-pulse">
+              <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
+              <div className="h-8 bg-gray-200 rounded w-1/2"></div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div>
@@ -152,7 +217,7 @@ function HRMDashboard({ onViewChange }: { onViewChange: (view: HRMView) => void 
         
         {/* Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          {stats.map((stat, index) => (
+          {statsData.map((stat, index) => (
             <div key={index} className="bg-background-light p-6 rounded-xl shadow-sm border border-gray-200">
               <div className="flex items-center justify-between">
                 <div>
@@ -193,40 +258,48 @@ function HRMDashboard({ onViewChange }: { onViewChange: (view: HRMView) => void 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Recent Hires</h3>
-            <div className="space-y-3">
-              {[
-                { name: 'Sarah Johnson', position: 'Software Engineer', date: 'Today' },
-                { name: 'Michael Chen', position: 'Product Manager', date: 'Yesterday' },
-                { name: 'Emma Davis', position: 'UI/UX Designer', date: '2 days ago' },
-              ].map((hire, index) => (
-                <div key={index} className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium text-gray-900">{hire.name}</p>
-                    <p className="text-sm text-gray-600">{hire.position}</p>
+            {recentHires.length > 0 ? (
+              <div className="space-y-3">
+                {recentHires.map((hire) => (
+                  <div key={hire.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <div>
+                      <p className="font-medium text-gray-900">
+                        {hire.first_name} {hire.last_name}
+                      </p>
+                      <p className="text-sm text-gray-500">{hire.position} - {hire.department}</p>
+                    </div>
+                    <div className="text-sm text-gray-500">
+                      {new Date(hire.hire_date).toLocaleDateString()}
+                    </div>
                   </div>
-                  <span className="text-sm text-gray-500">{hire.date}</span>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center text-gray-500 py-10">No recent hires</div>
+            )}
           </div>
 
           <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Upcoming Reviews</h3>
-            <div className="space-y-3">
-              {[
-                { name: 'Alex Thompson', type: 'Annual Review', date: 'Tomorrow' },
-                { name: 'Jessica Wilson', type: 'Probation Review', date: 'Next Week' },
-                { name: 'David Brown', type: 'Performance Review', date: 'Next Week' },
-              ].map((review, index) => (
-                <div key={index} className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium text-gray-900">{review.name}</p>
-                    <p className="text-sm text-gray-600">{review.type}</p>
+            {upcomingReviews.length > 0 ? (
+              <div className="space-y-3">
+                {upcomingReviews.map((review) => (
+                  <div key={review.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <div>
+                      <p className="font-medium text-gray-900">Performance Review</p>
+                      <p className="text-sm text-gray-500">
+                        Period: {new Date(review.review_period_start).toLocaleDateString()} - {new Date(review.review_period_end).toLocaleDateString()}
+                      </p>
+                    </div>
+                    <div className="text-sm text-gray-500">
+                      {review.status === 'draft' ? 'Draft' : 'Scheduled'}
+                    </div>
                   </div>
-                  <span className="text-sm text-gray-500">{review.date}</span>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center text-gray-500 py-10">No upcoming reviews</div>
+            )}
           </div>
         </div>
       </div>

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { ShoppingCart, Plus, Search, Filter, Send, Eye, Edit, Trash2, Download, Truck } from 'lucide-react';
+import { supabase } from '../../supabaseClient';
 
 interface PurchaseOrder {
   id: number;
@@ -35,65 +36,45 @@ export default function PurchaseOrderManagement() {
   const [statusFilter, setStatusFilter] = useState('all');
 
   useEffect(() => {
-    // Simulate API call
-    setTimeout(() => {
-      const mockPurchaseOrders: PurchaseOrder[] = [
-        {
-          id: 1,
-          po_number: 'PO-2024-001',
-          supplier_id: 1,
-          supplier_name: 'Apple Inc',
-          order_date: '2024-01-10',
-          expected_delivery_date: '2024-01-20',
-          subtotal: 550000,
-          tax_amount: 99000,
-          total_amount: 649000,
-          status: 'approved',
-          notes: 'Bulk order for Q1 inventory',
-          created_at: '2024-01-10T00:00:00Z',
-          updated_at: '2024-01-10T00:00:00Z',
-          items: [
-            {
-              id: 1,
-              product_id: 1,
-              product_name: 'MacBook Pro 13"',
-              quantity: 5,
-              unit_price: 110000,
-              total_price: 550000,
-              received_quantity: 5
-            }
-          ]
-        },
-        {
-          id: 2,
-          po_number: 'PO-2024-002',
-          supplier_id: 2,
-          supplier_name: 'Office Solutions Ltd',
-          order_date: '2024-01-15',
-          expected_delivery_date: '2024-01-25',
-          subtotal: 240000,
-          tax_amount: 43200,
-          total_amount: 283200,
-          status: 'pending',
-          notes: 'Office furniture order',
-          created_at: '2024-01-15T00:00:00Z',
-          updated_at: '2024-01-15T00:00:00Z',
-          items: [
-            {
-              id: 2,
-              product_id: 3,
-              product_name: 'Office Chair Premium',
-              quantity: 20,
-              unit_price: 12000,
-              total_price: 240000,
-              received_quantity: 0
-            }
-          ]
-        }
-      ];
-      setPurchaseOrders(mockPurchaseOrders);
-      setLoading(false);
-    }, 1000);
+    const fetchPurchaseOrders = async () => {
+      try {
+        setLoading(true);
+
+        const { data, error } = await supabase
+          .from('purchase_orders')
+          .select('*')
+          .order('created_at', { ascending: false });
+
+        if (error) throw error;
+
+        // Items may be in a separate table; if not available, default to empty
+        const normalized: PurchaseOrder[] = (data || []).map((po: any) => ({
+          id: po.id,
+          po_number: po.po_number,
+          supplier_id: po.supplier_id,
+          supplier_name: po.supplier_name,
+          order_date: po.order_date,
+          expected_delivery_date: po.expected_delivery_date,
+          subtotal: po.subtotal,
+          tax_amount: po.tax_amount,
+          total_amount: po.total_amount,
+          status: po.status,
+          notes: po.notes,
+          created_at: po.created_at,
+          updated_at: po.updated_at,
+          items: Array.isArray(po.items) ? po.items : []
+        }));
+
+        setPurchaseOrders(normalized);
+      } catch (error) {
+        console.error('Error fetching purchase orders:', error);
+        setPurchaseOrders([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchPurchaseOrders();
   }, []);
 
   const getStatusColor = (status: string) => {

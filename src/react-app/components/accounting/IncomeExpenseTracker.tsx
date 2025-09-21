@@ -1,18 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Plus, Edit, Trash2, Download, DollarSign, FileText } from 'lucide-react';
-
-interface Transaction {
-  id: number;
-  type: 'income' | 'expense';
-  category: string;
-  description: string;
-  amount: number;
-  tax_amount: number;
-  date: string;
-  payment_method: string;
-  status: string;
-  reference: string;
-}
+import { accountingService, type Transaction } from '../../services/accountingService';
 
 export default function IncomeExpenseTracker() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -21,60 +9,22 @@ export default function IncomeExpenseTracker() {
   const [filterType, setFilterType] = useState<'all' | 'income' | 'expense'>('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedPeriod, setSelectedPeriod] = useState('this_month');
+  const [loading, setLoading] = useState(true);
 
-  // Mock data - in real app, this would come from API
   useEffect(() => {
-    const mockTransactions: Transaction[] = [
-      {
-        id: 1,
-        type: 'income',
-        category: 'Sales Revenue',
-        description: 'Web Development Project - ABC Corp',
-        amount: 75000,
-        tax_amount: 13500,
-        date: '2024-01-15',
-        payment_method: 'Bank Transfer',
-        status: 'completed',
-        reference: 'INV-2024-001'
-      },
-      {
-        id: 2,
-        type: 'expense',
-        category: 'Office Expenses',
-        description: 'Monthly Office Rent',
-        amount: 25000,
-        tax_amount: 4500,
-        date: '2024-01-10',
-        payment_method: 'Cheque',
-        status: 'completed',
-        reference: 'EXP-2024-001'
-      },
-      {
-        id: 3,
-        type: 'income',
-        category: 'Consulting',
-        description: 'Business Consultation - StartUp Inc',
-        amount: 45000,
-        tax_amount: 8100,
-        date: '2024-01-12',
-        payment_method: 'UPI',
-        status: 'completed',
-        reference: 'INV-2024-002'
-      },
-      {
-        id: 4,
-        type: 'expense',
-        category: 'Software',
-        description: 'Adobe Creative Suite Subscription',
-        amount: 3500,
-        tax_amount: 630,
-        date: '2024-01-08',
-        payment_method: 'Credit Card',
-        status: 'completed',
-        reference: 'EXP-2024-002'
+    const fetchTransactions = async () => {
+      try {
+        setLoading(true);
+        const data = await accountingService.getTransactions();
+        setTransactions(data);
+      } catch (error) {
+        console.error('Error fetching transactions:', error);
+      } finally {
+        setLoading(false);
       }
-    ];
-    setTransactions(mockTransactions);
+    };
+
+    fetchTransactions();
   }, []);
 
   const filteredTransactions = transactions.filter(transaction => {
@@ -245,20 +195,45 @@ export default function IncomeExpenseTracker() {
     );
   };
 
-  const handleSave = (data: Partial<Transaction>) => {
-    if (editingTransaction) {
-      setTransactions(transactions.map(t => t.id === editingTransaction.id ? {...t, ...data} : t));
-      setEditingTransaction(null);
-    } else {
-      const newTransaction = {
-        ...data,
-        id: Math.max(...transactions.map(t => t.id), 0) + 1,
-        status: 'completed'
-      } as Transaction;
-      setTransactions([...transactions, newTransaction]);
-      setShowAddForm(false);
+  const handleSave = async (data: Partial<Transaction>) => {
+    try {
+      if (editingTransaction) {
+        await accountingService.updateTransaction(editingTransaction.id, data);
+        setTransactions(transactions.map(t => t.id === editingTransaction.id ? {...t, ...data} : t));
+        setEditingTransaction(null);
+      } else {
+        const newTransaction = await accountingService.addTransaction(data);
+        setTransactions([newTransaction, ...transactions]);
+        setShowAddForm(false);
+      }
+    } catch (error) {
+      console.error('Error saving transaction:', error);
     }
   };
+
+  const handleDelete = async (id: number, type: 'income' | 'expense') => {
+    try {
+      await accountingService.deleteTransaction(id, type);
+      setTransactions(transactions.filter(t => t.id !== id));
+    } catch (error) {
+      console.error('Error deleting transaction:', error);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {[...Array(3)].map((_, idx) => (
+            <div key={idx} className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 animate-pulse">
+              <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
+              <div className="h-8 bg-gray-200 rounded w-1/2"></div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -413,7 +388,7 @@ export default function IncomeExpenseTracker() {
                         <Edit size={16} />
                       </button>
                       <button
-                        onClick={() => setTransactions(transactions.filter(t => t.id !== transaction.id))}
+                        onClick={() => handleDelete(transaction.id, transaction.type)}
                         className="text-red-600 hover:text-red-800 transition-colors"
                       >
                         <Trash2 size={16} />

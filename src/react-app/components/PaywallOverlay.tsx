@@ -1,13 +1,54 @@
 import { X, Lock, ArrowRight } from 'lucide-react';
+import { useState } from 'react';
+import PaymentModal from '@/react-app/components/PaymentModal';
+import { useUser } from '@/react-app/hooks/useUser';
+import { useNavigate } from 'react-router';
 
 interface PaywallOverlayProps {
   serviceName: string;
+  serviceId: number;
   onClose: () => void;
 }
 
-export default function PaywallOverlay({ serviceName, onClose }: PaywallOverlayProps) {
+export default function PaywallOverlay({ serviceName, serviceId, onClose }: PaywallOverlayProps) {
+  const [isPaymentOpen, setIsPaymentOpen] = useState(false);
+  const { user } = useUser();
+  const navigate = useNavigate();
+  const [orderDetails, setOrderDetails] = useState<{
+    orderId: string;
+    amount: number;
+    currency: string;
+    serviceIds: number[];
+    subscriptionType: string;
+  } | null>(null);
+
+  const servicePricingINR: Record<number, number> = {
+    1: 499,
+    2: 499,
+    3: 699,
+    4: 399,
+    5: 799,
+    6: 0,
+  };
+
+  const openBuyNow = () => {
+    const amount = servicePricingINR[serviceId] ?? 499;
+    const fakeOrderId = `order_${Date.now()}`;
+    setOrderDetails({
+      orderId: fakeOrderId,
+      amount,
+      currency: 'INR',
+      serviceIds: [serviceId],
+      subscriptionType: 'monthly',
+    });
+    setIsPaymentOpen(true);
+  };
   const handleSubscribeClick = () => {
-    window.location.href = '/#services';
+    if (!user) {
+      navigate('/login');
+      return;
+    }
+    openBuyNow();
   };
 
   const handleDemoClick = () => {
@@ -39,7 +80,7 @@ export default function PaywallOverlay({ serviceName, onClose }: PaywallOverlayP
               onClick={handleSubscribeClick}
               className="flex-1 bg-gradient-to-r from-primary to-accent hover:from-primary-600 hover:to-accent-600 text-white px-6 py-3 rounded-xl font-bold text-base transition-all duration-200 flex items-center justify-center gap-2 transform hover:scale-105 shadow-lg"
             >
-              Subscribe Now <ArrowRight size={18} />
+              Buy Now <ArrowRight size={18} />
             </button>
             <button
               onClick={handleDemoClick}
@@ -50,6 +91,14 @@ export default function PaywallOverlay({ serviceName, onClose }: PaywallOverlayP
           </div>
         </div>
       </div>
+      <PaymentModal
+        isOpen={isPaymentOpen}
+        onClose={() => {
+          setIsPaymentOpen(false);
+          setOrderDetails(null);
+        }}
+        orderDetails={orderDetails}
+      />
     </div>
   );
 }

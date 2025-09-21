@@ -1,38 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Package, TrendingUp, TrendingDown, AlertTriangle, Plus, Search, Eye, Edit, Trash2 } from 'lucide-react';
-import { supabase } from '../../supabaseClient';
+import { simService, type StockMovement, type StockAlert, type Product } from '../../services/simService';
 
-interface StockMovement {
-  id: number;
-  product_id: number;
-  movement_type: string;
-  quantity: number;
-  reference_type: string;
-  reference_id: number | null;
-  notes: string;
-  created_by: string;
-  created_at: string;
-}
-
-interface StockAlert {
-  id: number;
-  product_id: number;
-  alert_type: string;
-  current_stock: number;
-  threshold_value: number;
-  is_active: boolean;
-  created_at: string;
-}
-
-interface Product {
-  id: number;
-  name: string;
-  sku: string;
-  stock_quantity: number;
-  min_stock_level: number;
-  max_stock_level: number;
-  unit_of_measure: string;
-}
 
 export default function StockManagement() {
   const [stockMovements, setStockMovements] = useState<StockMovement[]>([]);
@@ -50,34 +19,16 @@ export default function StockManagement() {
     try {
       setLoading(true);
       
-      // Fetch stock movements
-      const { data: movementsData, error: movementsError } = await supabase
-        .from('stock_movements')
-        .select('*')
-        .order('created_at', { ascending: false });
+      // Fetch all data in parallel
+      const [movementsData, alertsData, productsData] = await Promise.all([
+        simService.getStockMovements(),
+        simService.getStockAlerts(),
+        simService.getProducts(),
+      ]);
 
-      if (movementsError) throw movementsError;
-
-      // Fetch stock alerts
-      const { data: alertsData, error: alertsError } = await supabase
-        .from('stock_alerts')
-        .select('*')
-        .eq('is_active', true)
-        .order('created_at', { ascending: false });
-
-      if (alertsError) throw alertsError;
-
-      // Fetch products for reference
-      const { data: productsData, error: productsError } = await supabase
-        .from('products')
-        .select('id, name, sku, stock_quantity, min_stock_level, max_stock_level, unit_of_measure')
-        .eq('is_active', true);
-
-      if (productsError) throw productsError;
-
-      setStockMovements(movementsData || []);
-      setStockAlerts(alertsData || []);
-      setProducts(productsData || []);
+      setStockMovements(movementsData);
+      setStockAlerts(alertsData);
+      setProducts(productsData);
     } catch (error) {
       console.error('Error fetching stock data:', error);
     } finally {
@@ -125,12 +76,7 @@ export default function StockManagement() {
   const handleDeleteMovement = async (movementId: number) => {
     if (window.confirm('Are you sure you want to delete this stock movement?')) {
       try {
-        const { error } = await supabase
-          .from('stock_movements')
-          .delete()
-          .eq('id', movementId);
-
-        if (error) throw error;
+        await simService.deleteStockMovement(movementId);
         fetchData();
       } catch (error) {
         console.error('Error deleting stock movement:', error);
@@ -141,12 +87,7 @@ export default function StockManagement() {
   const handleDeleteAlert = async (alertId: number) => {
     if (window.confirm('Are you sure you want to delete this stock alert?')) {
       try {
-        const { error } = await supabase
-          .from('stock_alerts')
-          .update({ is_active: false })
-          .eq('id', alertId);
-
-        if (error) throw error;
+        await simService.deleteStockAlert(alertId);
         fetchData();
       } catch (error) {
         console.error('Error deleting stock alert:', error);

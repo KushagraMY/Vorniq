@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { ArrowLeft, Users, UserCheck, Calendar, MessageSquare, TrendingUp, Plus } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { ArrowLeft, Users, UserCheck, Calendar, MessageSquare, TrendingUp } from 'lucide-react';
 import { useNavigate } from 'react-router';
 import { useSubscription } from '@/react-app/hooks/useSubscription';
 import PaywallOverlay from '@/react-app/components/PaywallOverlay';
@@ -9,12 +9,14 @@ import FollowUpReminders from '@/react-app/components/crm/FollowUpReminders';
 import CommunicationHistory from '@/react-app/components/crm/CommunicationHistory';
 import SalesFunnel from '@/react-app/components/crm/SalesFunnel';
 import Header from '@/react-app/components/Header';
+import { crmService, type CRMStats } from '../services/crmService';
 
 type CRMView = 'dashboard' | 'customers' | 'leads' | 'followups' | 'communications' | 'funnel';
 
 export default function CRM() {
   const [activeView, setActiveView] = useState<CRMView>('dashboard');
   const [showPaywall, setShowPaywall] = useState(false);
+  
   const { hasActiveSubscription, subscribedServices } = useSubscription();
   const navigate = useNavigate();
 
@@ -28,10 +30,7 @@ export default function CRM() {
     }
   };
 
-  if (!hasAccessToCRM) {
-    navigate('/preview/crm');
-    return null;
-  }
+  // Allow rendering to show paywall overlay when accessing locked features
 
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: TrendingUp },
@@ -78,10 +77,7 @@ export default function CRM() {
               <div className="h-6 w-px bg-gray-300" />
               <h1 className="text-2xl font-bold text-text-primary">CRM</h1>
             </div>
-            <button className="bg-primary hover:bg-primary-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors">
-              <Plus size={18} />
-              Quick Add
-            </button>
+            
           </div>
         </div>
 
@@ -122,20 +118,66 @@ export default function CRM() {
         {showPaywall && (
           <PaywallOverlay
             serviceName="Customer Relationship Management"
+            serviceId={1}
             onClose={() => setShowPaywall(false)}
           />
         )}
+        
       </div>
     </div>
   );
 }
 
 function CRMDashboard({ onViewChange }: { onViewChange: (view: CRMView) => void }) {
-  const stats = [
-    { title: 'Total Customers', value: '1,234', change: '+12%', color: 'text-green-600' },
-    { title: 'Active Leads', value: '567', change: '+8%', color: 'text-blue-600' },
-    { title: 'Pending Follow-ups', value: '89', change: '-5%', color: 'text-orange-600' },
-    { title: 'Conversion Rate', value: '23%', change: '+3%', color: 'text-purple-600' },
+  const [stats, setStats] = useState<CRMStats>({
+    totalCustomers: 0,
+    activeLeads: 0,
+    pendingFollowups: 0,
+    conversionRate: 0,
+  });
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        setLoading(true);
+        const data = await crmService.getCRMStats();
+        setStats(data);
+      } catch (error) {
+        console.error('Error fetching CRM stats:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchStats();
+  }, []);
+
+  const statsData = [
+    { 
+      title: 'Total Customers', 
+      value: stats.totalCustomers.toString(), 
+      change: '+12.5%', 
+      color: 'text-blue-600' 
+    },
+    { 
+      title: 'Active Leads', 
+      value: stats.activeLeads.toString(), 
+      change: '+8.3%', 
+      color: 'text-green-600' 
+    },
+    { 
+      title: 'Pending Follow-ups', 
+      value: stats.pendingFollowups.toString(), 
+      change: '+5.2%', 
+      color: 'text-orange-600' 
+    },
+    { 
+      title: 'Conversion Rate', 
+      value: `${stats.conversionRate}%`, 
+      change: '+2.1%', 
+      color: 'text-purple-600' 
+    },
   ];
 
   const quickActions = [
@@ -145,6 +187,22 @@ function CRMDashboard({ onViewChange }: { onViewChange: (view: CRMView) => void 
     { title: 'View Communications', icon: MessageSquare, action: () => onViewChange('communications') },
   ];
 
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <h2 className="text-xl font-semibold text-gray-900 mb-6">Dashboard Overview</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          {[...Array(4)].map((_, idx) => (
+            <div key={idx} className="bg-background-light p-6 rounded-xl shadow-sm border border-gray-200 animate-pulse">
+              <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
+              <div className="h-8 bg-gray-200 rounded w-1/2"></div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div>
@@ -152,7 +210,7 @@ function CRMDashboard({ onViewChange }: { onViewChange: (view: CRMView) => void 
         
         {/* Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          {stats.map((stat, index) => (
+          {statsData.map((stat, index) => (
             <div key={index} className="bg-background-light p-6 rounded-xl shadow-sm border border-gray-200">
               <div className="flex items-center justify-between">
                 <div>

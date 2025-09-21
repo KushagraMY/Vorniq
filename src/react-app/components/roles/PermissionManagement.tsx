@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Plus, Edit, Trash2, Search, Filter, Key, Shield, Users, Package, Calculator, BarChart3, Settings } from 'lucide-react';
+import { supabase } from '../../supabaseClient';
 
 interface Permission {
   id: number;
@@ -39,45 +40,19 @@ export default function PermissionManagement() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingPermission, setEditingPermission] = useState<Permission | null>(null);
 
-  // Sample data - in real app, this would come from API
   useEffect(() => {
-    const samplePermissions: Permission[] = [
-      // CRM Permissions
-      { id: 1, name: 'crm.customers.view', description: 'View customer records', module: 'CRM', action: 'VIEW', resource: 'customers', created_at: '2024-01-01T00:00:00Z', roles_count: 3 },
-      { id: 2, name: 'crm.customers.create', description: 'Create new customers', module: 'CRM', action: 'CREATE', resource: 'customers', created_at: '2024-01-01T00:00:00Z', roles_count: 2 },
-      { id: 3, name: 'crm.customers.edit', description: 'Edit customer records', module: 'CRM', action: 'EDIT', resource: 'customers', created_at: '2024-01-01T00:00:00Z', roles_count: 2 },
-      { id: 4, name: 'crm.customers.delete', description: 'Delete customer records', module: 'CRM', action: 'DELETE', resource: 'customers', created_at: '2024-01-01T00:00:00Z', roles_count: 1 },
-      { id: 5, name: 'crm.leads.view', description: 'View lead records', module: 'CRM', action: 'VIEW', resource: 'leads', created_at: '2024-01-01T00:00:00Z', roles_count: 3 },
-      { id: 6, name: 'crm.leads.create', description: 'Create new leads', module: 'CRM', action: 'CREATE', resource: 'leads', created_at: '2024-01-01T00:00:00Z', roles_count: 3 },
-      { id: 7, name: 'crm.leads.edit', description: 'Edit lead records', module: 'CRM', action: 'EDIT', resource: 'leads', created_at: '2024-01-01T00:00:00Z', roles_count: 2 },
-      { id: 8, name: 'crm.leads.delete', description: 'Delete lead records', module: 'CRM', action: 'DELETE', resource: 'leads', created_at: '2024-01-01T00:00:00Z', roles_count: 1 },
-      
-      // HRM Permissions
-      { id: 9, name: 'hrm.employees.view', description: 'View employee records', module: 'HRM', action: 'VIEW', resource: 'employees', created_at: '2024-01-01T00:00:00Z', roles_count: 2 },
-      { id: 10, name: 'hrm.employees.create', description: 'Create new employees', module: 'HRM', action: 'CREATE', resource: 'employees', created_at: '2024-01-01T00:00:00Z', roles_count: 2 },
-      { id: 11, name: 'hrm.employees.edit', description: 'Edit employee records', module: 'HRM', action: 'EDIT', resource: 'employees', created_at: '2024-01-01T00:00:00Z', roles_count: 2 },
-      { id: 12, name: 'hrm.employees.delete', description: 'Delete employee records', module: 'HRM', action: 'DELETE', resource: 'employees', created_at: '2024-01-01T00:00:00Z', roles_count: 1 },
-      { id: 13, name: 'hrm.payroll.view', description: 'View payroll records', module: 'HRM', action: 'VIEW', resource: 'payroll', created_at: '2024-01-01T00:00:00Z', roles_count: 2 },
-      { id: 14, name: 'hrm.payroll.process', description: 'Process payroll', module: 'HRM', action: 'PROCESS', resource: 'payroll', created_at: '2024-01-01T00:00:00Z', roles_count: 1 },
-      
-      // SIM Permissions
-      { id: 15, name: 'sim.products.view', description: 'View product catalog', module: 'SIM', action: 'VIEW', resource: 'products', created_at: '2024-01-01T00:00:00Z', roles_count: 3 },
-      { id: 16, name: 'sim.products.create', description: 'Create new products', module: 'SIM', action: 'CREATE', resource: 'products', created_at: '2024-01-01T00:00:00Z', roles_count: 2 },
-      { id: 17, name: 'sim.products.edit', description: 'Edit product records', module: 'SIM', action: 'EDIT', resource: 'products', created_at: '2024-01-01T00:00:00Z', roles_count: 2 },
-      { id: 18, name: 'sim.products.delete', description: 'Delete product records', module: 'SIM', action: 'DELETE', resource: 'products', created_at: '2024-01-01T00:00:00Z', roles_count: 1 },
-      { id: 19, name: 'sim.invoices.view', description: 'View invoices', module: 'SIM', action: 'VIEW', resource: 'invoices', created_at: '2024-01-01T00:00:00Z', roles_count: 3 },
-      { id: 20, name: 'sim.invoices.create', description: 'Create invoices', module: 'SIM', action: 'CREATE', resource: 'invoices', created_at: '2024-01-01T00:00:00Z', roles_count: 2 },
-      
-      // System Permissions
-      { id: 21, name: 'system.users.view', description: 'View user accounts', module: 'SYSTEM', action: 'VIEW', resource: 'users', created_at: '2024-01-01T00:00:00Z', roles_count: 2 },
-      { id: 22, name: 'system.users.create', description: 'Create user accounts', module: 'SYSTEM', action: 'CREATE', resource: 'users', created_at: '2024-01-01T00:00:00Z', roles_count: 1 },
-      { id: 23, name: 'system.users.edit', description: 'Edit user accounts', module: 'SYSTEM', action: 'EDIT', resource: 'users', created_at: '2024-01-01T00:00:00Z', roles_count: 1 },
-      { id: 24, name: 'system.users.delete', description: 'Delete user accounts', module: 'SYSTEM', action: 'DELETE', resource: 'users', created_at: '2024-01-01T00:00:00Z', roles_count: 1 },
-    ];
-
-    setPermissions(samplePermissions);
-    setLoading(false);
+    fetchPermissions();
   }, []);
+
+  const fetchPermissions = async () => {
+    try {
+      setLoading(true);
+      const { data } = await supabase.from('permissions').select('*').order('created_at', { ascending: false });
+      setPermissions((data || []) as Permission[]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const filteredPermissions = permissions.filter(permission => {
     const matchesSearch = permission.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -100,16 +75,9 @@ export default function PermissionManagement() {
     setShowAddModal(true);
   };
 
-  const handleDeletePermission = (permissionId: number) => {
-    const permission = permissions.find(p => p.id === permissionId);
-    if (permission && permission.roles_count > 0) {
-      alert('Cannot delete permission assigned to roles. Please remove from roles first.');
-      return;
-    }
-    
-    if (window.confirm('Are you sure you want to delete this permission?')) {
-      setPermissions(permissions.filter(p => p.id !== permissionId));
-    }
+  const handleDeletePermission = async (permissionId: number) => {
+    await supabase.from('permissions').delete().eq('id', permissionId);
+    fetchPermissions();
   };
 
   const modules = Array.from(new Set(permissions.map(p => p.module)));
@@ -288,13 +256,26 @@ export default function PermissionManagement() {
         <PermissionModal
           permission={editingPermission}
           onClose={() => setShowAddModal(false)}
-          onSave={(permission) => {
+          onSave={async (permission) => {
             if (editingPermission) {
-              setPermissions(permissions.map(p => p.id === permission.id ? permission : p));
+              await supabase.from('permissions').update({
+                name: permission.name,
+                description: permission.description,
+                module: permission.module,
+                action: permission.action,
+                resource: permission.resource,
+              }).eq('id', permission.id);
             } else {
-              setPermissions([...permissions, { ...permission, id: Date.now() }]);
+              await supabase.from('permissions').insert([{ 
+                name: permission.name,
+                description: permission.description,
+                module: permission.module,
+                action: permission.action,
+                resource: permission.resource,
+              }]);
             }
             setShowAddModal(false);
+            fetchPermissions();
           }}
         />
       )}

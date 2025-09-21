@@ -1,76 +1,34 @@
 import { useState, useEffect } from 'react';
 import { Download, TrendingUp, TrendingDown, DollarSign, FileText } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from 'recharts';
-
-interface PLData {
-  period: string;
-  totalRevenue: number;
-  totalExpenses: number;
-  netIncome: number;
-  revenueCategories: { [key: string]: number };
-  expenseCategories: { [key: string]: number };
-}
+import { accountingService, type ProfitLossData } from '../../services/accountingService';
 
 export default function ProfitLossStatement() {
   const [selectedPeriod, setSelectedPeriod] = useState('this_month');
   const [comparisonPeriod, setComparisonPeriod] = useState('last_month');
-  const [plData, setPLData] = useState<PLData | null>(null);
-  const [comparisonData, setComparisonData] = useState<PLData | null>(null);
+  const [plData, setPLData] = useState<ProfitLossData | null>(null);
+  const [comparisonData, setComparisonData] = useState<ProfitLossData | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  // Mock data - in real app, this would come from API
   useEffect(() => {
-    const mockPLData: PLData = {
-      period: 'January 2024',
-      totalRevenue: 845000,
-      totalExpenses: 523000,
-      netIncome: 322000,
-      revenueCategories: {
-        'Sales Revenue': 520000,
-        'Consulting Services': 245000,
-        'Service Income': 65000,
-        'Other Income': 15000
-      },
-      expenseCategories: {
-        'Salaries & Benefits': 280000,
-        'Office Rent': 75000,
-        'Marketing': 45000,
-        'Software & Tools': 35000,
-        'Utilities': 25000,
-        'Travel & Transportation': 18000,
-        'Office Supplies': 12000,
-        'Professional Services': 20000,
-        'Insurance': 8000,
-        'Miscellaneous': 5000
+    const fetchPLData = async () => {
+      try {
+        setLoading(true);
+        const [currentData, previousData] = await Promise.all([
+          accountingService.getProfitLossData(selectedPeriod),
+          accountingService.getProfitLossData(comparisonPeriod),
+        ]);
+        
+        setPLData(currentData);
+        setComparisonData(previousData);
+      } catch (error) {
+        console.error('Error fetching P&L data:', error);
+      } finally {
+        setLoading(false);
       }
     };
 
-    const mockComparisonData: PLData = {
-      period: 'December 2023',
-      totalRevenue: 752000,
-      totalExpenses: 485000,
-      netIncome: 267000,
-      revenueCategories: {
-        'Sales Revenue': 465000,
-        'Consulting Services': 210000,
-        'Service Income': 55000,
-        'Other Income': 22000
-      },
-      expenseCategories: {
-        'Salaries & Benefits': 265000,
-        'Office Rent': 75000,
-        'Marketing': 38000,
-        'Software & Tools': 32000,
-        'Utilities': 22000,
-        'Travel & Transportation': 15000,
-        'Office Supplies': 10000,
-        'Professional Services': 18000,
-        'Insurance': 8000,
-        'Miscellaneous': 2000
-      }
-    };
-
-    setPLData(mockPLData);
-    setComparisonData(mockComparisonData);
+    fetchPLData();
   }, [selectedPeriod, comparisonPeriod]);
 
   const monthlyTrend = [
@@ -93,10 +51,21 @@ export default function ProfitLossStatement() {
     console.log('Exporting P&L Statement to Excel...');
   };
 
-  if (!plData || !comparisonData) {
+  if (loading || !plData || !comparisonData) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
+      <div className="space-y-6">
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 animate-pulse">
+          <div className="h-8 bg-gray-200 rounded w-1/3 mb-4"></div>
+          <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {[...Array(3)].map((_, idx) => (
+            <div key={idx} className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 animate-pulse">
+              <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
+              <div className="h-8 bg-gray-200 rounded w-1/2"></div>
+            </div>
+          ))}
+        </div>
       </div>
     );
   }

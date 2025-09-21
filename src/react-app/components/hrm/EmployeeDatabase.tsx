@@ -1,22 +1,10 @@
 import { useState, useEffect } from 'react';
 import { Users, Plus, Search, Eye, Edit, Trash2, Mail, Phone, Building, Calendar, DollarSign } from 'lucide-react';
-import { supabase } from '../../supabaseClient';
+import { hrmService, type Employee } from '../../services/hrmService';
+import EmployeeFormModal from './EmployeeFormModal';
+import EmployeeDrawer from './EmployeeDrawer';
+import ConfirmDeleteModal from '@/react-app/components/crm/ConfirmDeleteModal';
 
-interface Employee {
-  id: number;
-  employee_id: string;
-  first_name: string;
-  last_name: string;
-  email: string;
-  phone: string;
-  hire_date: string;
-  department: string;
-  position: string;
-  salary: number;
-  employment_type: string;
-  status: string;
-  created_at: string;
-}
 
 export default function EmployeeDatabase() {
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -24,6 +12,10 @@ export default function EmployeeDatabase() {
   const [searchTerm, setSearchTerm] = useState('');
   const [departmentFilter, setDepartmentFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [showAdd, setShowAdd] = useState(false);
+  const [drawerEmployeeId, setDrawerEmployeeId] = useState<number | null>(null);
+  const [drawerMode, setDrawerMode] = useState<'view' | 'edit'>('view');
+  const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
 
   useEffect(() => {
     fetchEmployees();
@@ -32,13 +24,8 @@ export default function EmployeeDatabase() {
   const fetchEmployees = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
-        .from('employees')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      setEmployees(data || []);
+      const data = await hrmService.getEmployees();
+      setEmployees(data);
     } catch (error) {
       console.error('Error fetching employees:', error);
     } finally {
@@ -78,19 +65,14 @@ export default function EmployeeDatabase() {
     }
   };
 
-  const handleDelete = async (employeeId: number) => {
-    if (window.confirm('Are you sure you want to delete this employee?')) {
-      try {
-        const { error } = await supabase
-          .from('employees')
-          .delete()
-          .eq('id', employeeId);
-
-        if (error) throw error;
-        fetchEmployees();
-      } catch (error) {
-        console.error('Error deleting employee:', error);
-      }
+  const doDelete = async () => {
+    if (!confirmDeleteId) return;
+    try {
+      await hrmService.deleteEmployee(confirmDeleteId);
+      setConfirmDeleteId(null);
+      fetchEmployees();
+    } catch (error) {
+      console.error('Error deleting employee:', error);
     }
   };
 
@@ -111,6 +93,7 @@ export default function EmployeeDatabase() {
           <p className="text-gray-600">Manage your workforce and employee information</p>
         </div>
         <button
+          onClick={() => setShowAdd(true)}
           className="bg-primary hover:bg-primary-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
         >
           <Plus size={20} />
@@ -269,16 +252,13 @@ export default function EmployeeDatabase() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                     <div className="flex items-center gap-2">
-                      <button className="text-primary hover:text-primary-600">
+                      <button onClick={() => { setDrawerEmployeeId(employee.id); setDrawerMode('view'); }} className="text-primary hover:text-primary-600">
                         <Eye size={16} />
                       </button>
-                      <button className="text-blue-600 hover:text-blue-800">
+                      <button onClick={() => { setDrawerEmployeeId(employee.id); setDrawerMode('edit'); }} className="text-blue-600 hover:text-blue-800">
                         <Edit size={16} />
                       </button>
-                      <button 
-                        onClick={() => handleDelete(employee.id)}
-                        className="text-red-600 hover:text-red-800"
-                      >
+                      <button onClick={() => setConfirmDeleteId(employee.id)} className="text-red-600 hover:text-red-800">
                         <Trash2 size={16} />
                       </button>
                     </div>
@@ -298,7 +278,21 @@ export default function EmployeeDatabase() {
         )}
       </div>
 
-      {/* Add Employee Modal would go here */}
+      <EmployeeFormModal isOpen={showAdd} onClose={() => setShowAdd(false)} onCreated={fetchEmployees} />
+      <EmployeeDrawer
+        isOpen={drawerEmployeeId !== null}
+        employeeId={drawerEmployeeId}
+        mode={drawerMode}
+        onClose={() => setDrawerEmployeeId(null)}
+        onSaved={fetchEmployees}
+      />
+      <ConfirmDeleteModal
+        isOpen={confirmDeleteId !== null}
+        title="Delete Employee"
+        message="Are you sure you want to delete this employee? This action cannot be undone."
+        onCancel={() => setConfirmDeleteId(null)}
+        onConfirm={doDelete}
+      />
     </div>
   );
 }

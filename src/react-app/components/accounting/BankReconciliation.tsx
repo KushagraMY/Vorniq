@@ -1,38 +1,6 @@
 import { useState, useEffect } from 'react';
 import { CreditCard, Plus, Check, X, Upload, Download, AlertCircle, CheckCircle } from 'lucide-react';
-
-interface BankAccount {
-  id: number;
-  name: string;
-  accountNumber: string;
-  bankName: string;
-  currentBalance: number;
-  reconciledBalance: number;
-  lastReconciled: string;
-}
-
-interface BankTransaction {
-  id: number;
-  bankAccountId: number;
-  date: string;
-  description: string;
-  amount: number;
-  type: 'debit' | 'credit';
-  balance: number;
-  isReconciled: boolean;
-  matchedTransactionId?: number;
-}
-
-interface BookTransaction {
-  id: number;
-  date: string;
-  description: string;
-  amount: number;
-  type: 'debit' | 'credit';
-  category: string;
-  isReconciled: boolean;
-  matchedBankTransactionId?: number;
-}
+import { accountingService, type BankAccount, type BankTransaction, type BookTransaction } from '../../services/accountingService';
 
 export default function BankReconciliation() {
   const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
@@ -41,121 +9,49 @@ export default function BankReconciliation() {
   const [bookTransactions, setBookTransactions] = useState<BookTransaction[]>([]);
   const [reconciliationPeriod, setReconciliationPeriod] = useState('this_month');
   const [showAddTransaction, setShowAddTransaction] = useState(false);
+  const [loading, setLoading] = useState(true);
 
-  // Mock data - in real app, this would come from API
   useEffect(() => {
-    const mockAccounts: BankAccount[] = [
-      {
-        id: 1,
-        name: 'Primary Current Account',
-        accountNumber: 'XXXX1234',
-        bankName: 'State Bank of India',
-        currentBalance: 485000,
-        reconciledBalance: 452000,
-        lastReconciled: '2024-01-10'
-      },
-      {
-        id: 2,
-        name: 'Business Savings',
-        accountNumber: 'XXXX5678',
-        bankName: 'HDFC Bank',
-        currentBalance: 125000,
-        reconciledBalance: 125000,
-        lastReconciled: '2024-01-15'
+    const fetchBankData = async () => {
+      try {
+        setLoading(true);
+        const [accounts, bookData] = await Promise.all([
+          accountingService.getBankAccounts(),
+          accountingService.getBookTransactions(),
+        ]);
+        
+        setBankAccounts(accounts);
+        setBookTransactions(bookData);
+        
+        if (accounts.length > 0) {
+          setSelectedAccount(accounts[0].id);
+          const bankData = await accountingService.getBankTransactions(accounts[0].id);
+          setBankTransactions(bankData);
+        }
+      } catch (error) {
+        console.error('Error fetching bank reconciliation data:', error);
+      } finally {
+        setLoading(false);
       }
-    ];
+    };
 
-    const mockBankTransactions: BankTransaction[] = [
-      {
-        id: 1,
-        bankAccountId: 1,
-        date: '2024-01-15',
-        description: 'NEFT CR TechStart Solutions',
-        amount: 75000,
-        type: 'credit',
-        balance: 485000,
-        isReconciled: true,
-        matchedTransactionId: 1
-      },
-      {
-        id: 2,
-        bankAccountId: 1,
-        date: '2024-01-14',
-        description: 'UPI DR Office Supplies',
-        amount: 12000,
-        type: 'debit',
-        balance: 410000,
-        isReconciled: false
-      },
-      {
-        id: 3,
-        bankAccountId: 1,
-        date: '2024-01-13',
-        description: 'IMPS CR Digital Agency',
-        amount: 45000,
-        type: 'credit',
-        balance: 422000,
-        isReconciled: true,
-        matchedTransactionId: 2
-      },
-      {
-        id: 4,
-        bankAccountId: 1,
-        date: '2024-01-12',
-        description: 'Salary Payment',
-        amount: 125000,
-        type: 'debit',
-        balance: 377000,
-        isReconciled: false
-      }
-    ];
-
-    const mockBookTransactions: BookTransaction[] = [
-      {
-        id: 1,
-        date: '2024-01-15',
-        description: 'Payment from TechStart Solutions',
-        amount: 75000,
-        type: 'credit',
-        category: 'Sales Revenue',
-        isReconciled: true,
-        matchedBankTransactionId: 1
-      },
-      {
-        id: 2,
-        date: '2024-01-13',
-        description: 'Payment from Digital Agency',
-        amount: 45000,
-        type: 'credit',
-        category: 'Consulting Revenue',
-        isReconciled: true,
-        matchedBankTransactionId: 3
-      },
-      {
-        id: 3,
-        date: '2024-01-10',
-        description: 'Office Rent Payment',
-        amount: 25000,
-        type: 'debit',
-        category: 'Office Expenses',
-        isReconciled: false
-      },
-      {
-        id: 4,
-        date: '2024-01-08',
-        description: 'Marketing Campaign',
-        amount: 18000,
-        type: 'debit',
-        category: 'Marketing',
-        isReconciled: false
-      }
-    ];
-
-    setBankAccounts(mockAccounts);
-    setBankTransactions(mockBankTransactions);
-    setBookTransactions(mockBookTransactions);
-    setSelectedAccount(1);
+    fetchBankData();
   }, []);
+
+  useEffect(() => {
+    if (selectedAccount) {
+      const fetchBankTransactions = async () => {
+        try {
+          const data = await accountingService.getBankTransactions(selectedAccount);
+          setBankTransactions(data);
+        } catch (error) {
+          console.error('Error fetching bank transactions:', error);
+        }
+      };
+
+      fetchBankTransactions();
+    }
+  }, [selectedAccount]);
 
   const AddTransactionForm = ({ onSave, onCancel }: {
     onSave: (data: Partial<BookTransaction>) => void;
@@ -298,6 +194,25 @@ export default function BankReconciliation() {
   const unreconciledBankTransactions = accountBankTransactions.filter(t => !t.isReconciled);
   const unreconciledBookTransactions = bookTransactions.filter(t => !t.isReconciled);
   const difference = selectedAccountData ? selectedAccountData.currentBalance - selectedAccountData.reconciledBalance : 0;
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 animate-pulse">
+          <div className="h-8 bg-gray-200 rounded w-1/3 mb-4"></div>
+          <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+          {[...Array(4)].map((_, idx) => (
+            <div key={idx} className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 animate-pulse">
+              <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
+              <div className="h-8 bg-gray-200 rounded w-1/2"></div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

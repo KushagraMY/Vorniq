@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { ArrowLeft, Users, Shield, Key, UserPlus, Lock, Plus, Eye } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { ArrowLeft, Users, Shield, Key, UserPlus, Lock, Eye } from 'lucide-react';
 import { useNavigate } from 'react-router';
 import { useSubscription } from '@/react-app/hooks/useSubscription';
 import PaywallOverlay from '@/react-app/components/PaywallOverlay';
@@ -8,6 +8,7 @@ import RoleManagement from '@/react-app/components/roles/RoleManagement';
 import PermissionManagement from '@/react-app/components/roles/PermissionManagement';
 import AuditLogs from '@/react-app/components/roles/AuditLogs';
 import Header from '@/react-app/components/Header';
+import { supabase } from '../supabaseClient';
 
 type RoleView = 'dashboard' | 'users' | 'roles' | 'permissions' | 'audit';
 
@@ -50,10 +51,7 @@ export default function UserRoles() {
     }
   };
 
-  if (!hasAccessToRoles) {
-    navigate('/preview/roles');
-    return null;
-  }
+  // Allow rendering to show paywall overlay when accessing locked features
 
   return (
     <div className="min-h-screen bg-background">
@@ -74,10 +72,7 @@ export default function UserRoles() {
               <div className="h-6 w-px bg-gray-300" />
               <h1 className="text-2xl font-bold text-text-primary">User Roles & Access Control</h1>
             </div>
-            <button className="bg-primary hover:bg-primary-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors">
-              <Plus size={18} />
-              Quick Add
-            </button>
+            
           </div>
         </div>
 
@@ -118,6 +113,7 @@ export default function UserRoles() {
         {showPaywall && (
           <PaywallOverlay
             serviceName="User Roles & Access Control"
+            serviceId={4}
             onClose={() => setShowPaywall(false)}
           />
         )}
@@ -127,11 +123,36 @@ export default function UserRoles() {
 }
 
 function RolesDashboard({ onViewChange }: { onViewChange: (view: RoleView) => void }) {
+  const [totalUsers, setTotalUsers] = useState(0);
+  const [activeRoles, setActiveRoles] = useState(0);
+  const [permissionsCount, setPermissionsCount] = useState(0);
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const [{ count: usersCount }, { data: rolesData }, { count: permsCount }] = await Promise.all([
+          supabase.from('users').select('id', { count: 'exact', head: true }),
+          supabase.from('roles').select('id, is_active'),
+          supabase.from('permissions').select('id', { count: 'exact', head: true })
+        ]);
+        setTotalUsers(usersCount || 0);
+        setActiveRoles((rolesData || []).filter((r: any) => r.is_active).length);
+        setPermissionsCount(permsCount || 0);
+      } catch (e) {
+        console.error('Error loading roles dashboard stats:', e);
+        setTotalUsers(0);
+        setActiveRoles(0);
+        setPermissionsCount(0);
+      }
+    };
+    load();
+  }, []);
+
   const stats = [
-    { title: 'Total Users', value: '24', change: '+3', color: 'text-green-600' },
-    { title: 'Active Roles', value: '5', change: '+1', color: 'text-blue-600' },
-    { title: 'Permissions', value: '48', change: '+2', color: 'text-purple-600' },
-    { title: 'Security Events', value: '12', change: '-5', color: 'text-orange-600' },
+    { title: 'Total Users', value: totalUsers.toString(), change: '', color: 'text-green-600' },
+    { title: 'Active Roles', value: activeRoles.toString(), change: '', color: 'text-blue-600' },
+    { title: 'Permissions', value: permissionsCount.toString(), change: '', color: 'text-purple-600' },
+    { title: 'Security Events', value: '—', change: '', color: 'text-orange-600' },
   ];
 
   const quickActions = [

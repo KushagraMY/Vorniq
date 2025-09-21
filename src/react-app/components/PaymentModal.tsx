@@ -34,20 +34,20 @@ export default function PaymentModal({ isOpen, onClose, orderDetails }: PaymentM
       setLoading(true);
       setPaymentError(null);
 
-      // Load Razorpay script
-      const script = document.createElement('script');
-      script.src = 'https://checkout.razorpay.com/v1/checkout.js';
-      script.async = true;
-      document.body.appendChild(script);
+      if (!env.razorpayKeyId) {
+        setPaymentError('Payment key not configured. Set VITE_RAZORPAY_KEY_ID.');
+        setLoading(false);
+        return;
+      }
 
-      script.onload = () => {
-        const options = {
+      // Ensure Razorpay script is available
+      const openCheckout = () => {
+        const options: any = {
           key: env.razorpayKeyId,
-          amount: orderDetails.amount * 100, // Razorpay expects amount in paise
+          amount: orderDetails.amount * 100, // paise
           currency: orderDetails.currency,
           name: env.appName,
           description: `${orderDetails.subscriptionType} subscription`,
-          order_id: orderDetails.orderId,
           handler: function (response: any) {
             handlePaymentSuccess(response);
           },
@@ -62,17 +62,48 @@ export default function PaymentModal({ isOpen, onClose, orderDetails }: PaymentM
           },
           theme: {
             color: '#6366f1'
+          },
+          modal: {
+            ondismiss: () => {
+              setLoading(false);
+            }
           }
         };
 
+        // Avoid passing a fake order_id which can stall the checkout
+        // If you have a backend-created order, pass it via orderDetails and enable below
+        // if (orderDetails.orderId && orderDetails.orderId.startsWith('order_')) {
+        //   options.order_id = orderDetails.orderId;
+        // }
+
         const rzp = new (window as any).Razorpay(options);
+        rzp.on('payment.failed', (resp: any) => {
+          setPaymentError(resp.error && resp.error.description ? resp.error.description : 'Payment failed');
+          setLoading(false);
+        });
         rzp.open();
+        // Safety timeout: if checkout fails to open, stop loading and show an error
+        window.setTimeout(() => {
+          if (document.querySelector('.razorpay-container') === null) {
+            setPaymentError('Unable to open Razorpay. Check API key or pop-up blockers.');
+            setLoading(false);
+          }
+        }, 6000);
       };
 
-      script.onerror = () => {
-        setPaymentError('Failed to load payment gateway');
-        setLoading(false);
-      };
+      if (!(window as any).Razorpay) {
+        const script = document.createElement('script');
+        script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+        script.async = true;
+        script.onload = openCheckout;
+        script.onerror = () => {
+          setPaymentError('Failed to load payment gateway');
+          setLoading(false);
+        };
+        document.body.appendChild(script);
+      } else {
+        openCheckout();
+      }
 
     } catch (error) {
       console.error('Error initializing payment:', error);

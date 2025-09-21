@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Plus, Edit, Trash2, Search, Shield, Users, Key, Settings } from 'lucide-react';
+import { supabase } from '../../supabaseClient';
+import ConfirmDeleteModal from '@/react-app/components/crm/ConfirmDeleteModal';
 
 interface Role {
   id: number;
@@ -31,72 +33,25 @@ export default function RoleManagement() {
   const [showPermissionsModal, setShowPermissionsModal] = useState(false);
   const [selectedRole, setSelectedRole] = useState<Role | null>(null);
 
-  // Sample data - in real app, this would come from API
   useEffect(() => {
-    const sampleRoles: Role[] = [
-      {
-        id: 1,
-        name: 'Admin',
-        description: 'Full system access with all permissions',
-        is_active: true,
-        user_count: 3,
-        permission_count: 48,
-        created_at: '2024-01-01T00:00:00Z',
-        updated_at: '2024-01-01T00:00:00Z'
-      },
-      {
-        id: 2,
-        name: 'Manager',
-        description: 'Management level access with most permissions',
-        is_active: true,
-        user_count: 6,
-        permission_count: 32,
-        created_at: '2024-01-01T00:00:00Z',
-        updated_at: '2024-01-10T00:00:00Z'
-      },
-      {
-        id: 3,
-        name: 'Employee',
-        description: 'Basic employee access with limited permissions',
-        is_active: true,
-        user_count: 15,
-        permission_count: 18,
-        created_at: '2024-01-01T00:00:00Z',
-        updated_at: '2024-01-05T00:00:00Z'
-      },
-      {
-        id: 4,
-        name: 'Sales Rep',
-        description: 'Sales team access with CRM and SIM permissions',
-        is_active: true,
-        user_count: 8,
-        permission_count: 24,
-        created_at: '2024-01-15T00:00:00Z',
-        updated_at: '2024-01-15T00:00:00Z'
-      },
-      {
-        id: 5,
-        name: 'HR Manager',
-        description: 'HR department access with HRM permissions',
-        is_active: false,
-        user_count: 0,
-        permission_count: 16,
-        created_at: '2024-01-20T00:00:00Z',
-        updated_at: '2024-01-25T00:00:00Z'
-      }
-    ];
-
-    const samplePermissions: Permission[] = [
-      { id: 1, name: 'crm.customers.view', description: 'View customer records', module: 'CRM', action: 'VIEW', resource: 'customers' },
-      { id: 2, name: 'crm.customers.create', description: 'Create new customers', module: 'CRM', action: 'CREATE', resource: 'customers' },
-      { id: 3, name: 'hrm.employees.view', description: 'View employee records', module: 'HRM', action: 'VIEW', resource: 'employees' },
-      { id: 4, name: 'sim.products.view', description: 'View product catalog', module: 'SIM', action: 'VIEW', resource: 'products' },
-    ];
-
-    setRoles(sampleRoles);
-    setPermissions(samplePermissions);
-    setLoading(false);
+    fetchData();
   }, []);
+
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      const [{ data: rolesData }, { data: perms }] = await Promise.all([
+        supabase.from('roles').select('*').order('created_at', { ascending: false }),
+        supabase.from('permissions').select('*')
+      ]);
+      setRoles((rolesData || []).map((r: any) => ({ ...r, user_count: r.user_count || 0, permission_count: r.permission_count || 0 })));
+      setPermissions((perms || []) as Permission[]);
+    } catch (e) {
+      console.error('Error loading roles/perms', e);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const filteredRoles = roles.filter(role => 
     role.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -113,16 +68,13 @@ export default function RoleManagement() {
     setShowAddModal(true);
   };
 
-  const handleDeleteRole = (roleId: number) => {
-    const role = roles.find(r => r.id === roleId);
-    if (role && role.user_count > 0) {
-      alert('Cannot delete role with assigned users. Please reassign users first.');
-      return;
-    }
-    
-    if (window.confirm('Are you sure you want to delete this role?')) {
-      setRoles(roles.filter(r => r.id !== roleId));
-    }
+  const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
+  const handleDeleteRole = (roleId: number) => setConfirmDeleteId(roleId);
+  const doDelete = async () => {
+    if (!confirmDeleteId) return;
+    await supabase.from('roles').delete().eq('id', confirmDeleteId);
+    setConfirmDeleteId(null);
+    fetchData();
   };
 
   const handleToggleRoleStatus = (roleId: number) => {
@@ -276,13 +228,14 @@ export default function RoleManagement() {
         <RoleModal
           role={editingRole}
           onClose={() => setShowAddModal(false)}
-          onSave={(role) => {
+          onSave={async (role) => {
             if (editingRole) {
-              setRoles(roles.map(r => r.id === role.id ? role : r));
+              await supabase.from('roles').update({ name: role.name, description: role.description, is_active: role.is_active, updated_at: new Date().toISOString() }).eq('id', role.id);
             } else {
-              setRoles([...roles, { ...role, id: Date.now() }]);
+              await supabase.from('roles').insert([{ name: role.name, description: role.description, is_active: role.is_active }]);
             }
             setShowAddModal(false);
+            fetchData();
           }}
         />
       )}
@@ -293,12 +246,21 @@ export default function RoleManagement() {
           role={selectedRole}
           permissions={permissions}
           onClose={() => setShowPermissionsModal(false)}
-          onSave={(updatedRole) => {
-            setRoles(roles.map(r => r.id === updatedRole.id ? updatedRole : r));
+          onSave={async (updatedRole) => {
+            await supabase.from('roles').update({ permission_count: updatedRole.permission_count, updated_at: new Date().toISOString() }).eq('id', updatedRole.id);
             setShowPermissionsModal(false);
+            fetchData();
           }}
         />
       )}
+
+      <ConfirmDeleteModal
+        isOpen={confirmDeleteId !== null}
+        title="Delete Role"
+        message="Are you sure you want to delete this role?"
+        onCancel={() => setConfirmDeleteId(null)}
+        onConfirm={doDelete}
+      />
     </div>
   );
 }

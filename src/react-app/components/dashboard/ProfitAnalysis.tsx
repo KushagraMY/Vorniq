@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { 
   TrendingUp, 
   DollarSign, 
@@ -9,87 +9,49 @@ import {
   ArrowDown
 } from 'lucide-react';
 import { Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, AreaChart, Area, ComposedChart } from 'recharts';
-
-const profitData = [
-  { 
-    month: 'Jan', 
-    revenue: 65000, 
-    expenses: 45000, 
-    profit: 20000, 
-    profitMargin: 30.8,
-    grossProfit: 35000,
-    netProfit: 20000
-  },
-  { 
-    month: 'Feb', 
-    revenue: 78000, 
-    expenses: 52000, 
-    profit: 26000, 
-    profitMargin: 33.3,
-    grossProfit: 42000,
-    netProfit: 26000
-  },
-  { 
-    month: 'Mar', 
-    revenue: 85000, 
-    expenses: 48000, 
-    profit: 37000, 
-    profitMargin: 43.5,
-    grossProfit: 48000,
-    netProfit: 37000
-  },
-  { 
-    month: 'Apr', 
-    revenue: 92000, 
-    expenses: 55000, 
-    profit: 37000, 
-    profitMargin: 40.2,
-    grossProfit: 52000,
-    netProfit: 37000
-  },
-  { 
-    month: 'May', 
-    revenue: 88000, 
-    expenses: 58000, 
-    profit: 30000, 
-    profitMargin: 34.1,
-    grossProfit: 45000,
-    netProfit: 30000
-  },
-  { 
-    month: 'Jun', 
-    revenue: 95000, 
-    expenses: 60000, 
-    profit: 35000, 
-    profitMargin: 36.8,
-    grossProfit: 55000,
-    netProfit: 35000
-  },
-];
-
-const profitByCategory = [
-  { category: 'Product Sales', profit: 145000, margin: 42 },
-  { category: 'Services', profit: 78000, margin: 38 },
-  { category: 'Subscriptions', profit: 52000, margin: 65 },
-  { category: 'Consulting', profit: 35000, margin: 55 },
-];
-
-const quarterlyComparison = [
-  { quarter: 'Q1 2023', profit: 85000, margin: 32 },
-  { quarter: 'Q2 2023', profit: 92000, margin: 35 },
-  { quarter: 'Q3 2023', profit: 88000, margin: 33 },
-  { quarter: 'Q4 2023', profit: 105000, margin: 38 },
-  { quarter: 'Q1 2024', profit: 125000, margin: 42 },
-  { quarter: 'Q2 2024', profit: 138000, margin: 45 },
-];
+import { dashboardService, type ProfitData } from '../../services/dashboardService';
 
 export default function ProfitAnalysis() {
   const [selectedView, setSelectedView] = useState('monthly');
   const [selectedMetric, setSelectedMetric] = useState('profit');
+  const [profitData, setProfitData] = useState<ProfitData[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        const data = await dashboardService.getProfitData();
+        setProfitData(data);
+      } catch (error) {
+        console.error('Error fetching profit data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
 
   const totalProfit = profitData.reduce((sum, item) => sum + item.profit, 0);
   const totalRevenue = profitData.reduce((sum, item) => sum + item.revenue, 0);
-  const avgProfitMargin = (totalProfit / totalRevenue) * 100;
+  const avgProfitMargin = totalRevenue > 0 ? (totalProfit / totalRevenue) * 100 : 0;
+
+  // Mock data for categories and quarterly comparison (would need more detailed data)
+  const profitByCategory = [
+    { category: 'Product Sales', profit: Math.floor(totalProfit * 0.6), margin: Math.floor(avgProfitMargin) },
+    { category: 'Services', profit: Math.floor(totalProfit * 0.3), margin: Math.floor(avgProfitMargin * 0.9) },
+    { category: 'Subscriptions', profit: Math.floor(totalProfit * 0.1), margin: Math.floor(avgProfitMargin * 1.2) },
+  ];
+
+  const quarterlyComparison = [
+    { quarter: 'Q1 2023', profit: Math.floor(totalProfit * 0.8), margin: Math.floor(avgProfitMargin * 0.9) },
+    { quarter: 'Q2 2023', profit: Math.floor(totalProfit * 0.85), margin: Math.floor(avgProfitMargin * 0.95) },
+    { quarter: 'Q3 2023', profit: Math.floor(totalProfit * 0.9), margin: Math.floor(avgProfitMargin * 1.0) },
+    { quarter: 'Q4 2023', profit: Math.floor(totalProfit * 0.95), margin: Math.floor(avgProfitMargin * 1.05) },
+    { quarter: 'Q1 2024', profit: Math.floor(totalProfit * 1.0), margin: Math.floor(avgProfitMargin * 1.1) },
+    { quarter: 'Q2 2024', profit: Math.floor(totalProfit * 1.1), margin: Math.floor(avgProfitMargin * 1.15) },
+  ];
 
   const profitMetrics = [
     {
@@ -133,6 +95,24 @@ export default function ProfitAnalysis() {
   const handleExport = () => {
     console.log('Exporting profit analysis...');
   };
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <h2 className="text-2xl font-bold text-gray-900">Profit Analysis</h2>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {[...Array(4)].map((_, idx) => (
+            <div key={idx} className="border-2 border-gray-200 rounded-xl p-6 animate-pulse">
+              <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
+              <div className="h-8 bg-gray-200 rounded w-1/2"></div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
