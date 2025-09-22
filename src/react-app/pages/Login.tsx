@@ -51,11 +51,13 @@ export default function Login() {
       window.location.href = '/';
     } catch (error: any) {
       console.error('Login error:', error);
+      console.error('Error code:', error.code);
+      console.error('Error message:', error.message);
       
       // Handle specific Firebase auth errors
       switch (error.code) {
         case 'auth/user-not-found':
-          setError('No account found with this email address.');
+          setError('No account found with this email address. Please sign up first or use Google login.');
           break;
         case 'auth/wrong-password':
           setError('Incorrect password. Please try again.');
@@ -69,8 +71,14 @@ export default function Login() {
         case 'auth/too-many-requests':
           setError('Too many failed attempts. Please try again later.');
           break;
+        case 'auth/operation-not-allowed':
+          setError('Email/password authentication is not enabled. Please use Google login.');
+          break;
+        case 'auth/network-request-failed':
+          setError('Network error. Please check your internet connection.');
+          break;
         default:
-          setError('Login failed. Please check your credentials and try again.');
+          setError(`Login failed: ${error.message || 'Please check your credentials and try again.'}`);
       }
     }
     
@@ -91,16 +99,31 @@ export default function Login() {
       };
       login(userObj);
       window.location.href = '/';
-    } catch {
+    } catch (error: any) {
+      console.error('Google login error:', error);
       setError('Google login failed. Please try again.');
     }
     setLoading(false);
   };
 
+  const handleDemoLogin = () => {
+    const demoUser = {
+      email: 'demo@vorniq.com',
+      name: 'Demo User',
+      id: 'demo-user-123',
+      photoURL: ''
+    };
+    login(demoUser);
+    window.location.href = '/';
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary-50 to-accent-50">
       <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-md">
-        <h2 className="text-3xl font-bold text-primary mb-6 text-center">Login to VorniQ</h2>
+        <h2 className="text-3xl font-bold text-primary mb-2 text-center">Login to VorniQ</h2>
+        <p className="text-sm text-gray-600 text-center mb-6">
+          Use your existing account or try our demo to explore VorniQ
+        </p>
         <form onSubmit={handleLogin} className="space-y-4">
           <input
             type="email"
@@ -140,6 +163,18 @@ export default function Login() {
           disabled={loading}
         >
           <GoogleIcon /> {loading ? 'Signing in...' : 'Login with Google'}
+        </button>
+        <div className="my-4 flex items-center justify-center gap-2">
+          <span className="h-px w-10 bg-gray-300" />
+          <span className="text-gray-400 text-sm">or</span>
+          <span className="h-px w-10 bg-gray-300" />
+        </div>
+        <button
+          onClick={handleDemoLogin}
+          className="w-full bg-accent hover:bg-accent-600 text-white py-3 rounded-lg font-semibold transition-colors"
+          disabled={loading}
+        >
+          Try Demo Account
         </button>
         <div className="mt-6 text-center text-sm text-gray-500">
           Don&apos;t have an account? <a href="/signup" className="text-primary font-semibold hover:underline">Sign Up</a>
