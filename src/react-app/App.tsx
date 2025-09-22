@@ -17,6 +17,7 @@ import HRMPreview from "@/react-app/pages/preview/HRMPreview";
 import SIMPreview from "@/react-app/pages/preview/SIMPreview";
 import AccountingPreview from "@/react-app/pages/preview/AccountingPreview";
 import UserRolesPreview from "@/react-app/pages/preview/UserRolesPreview";
+import DebugInfo from "@/react-app/components/DebugInfo";
 
 export default function App() {
   return (
@@ -41,6 +42,7 @@ export default function App() {
             <Route path="/preview/accounting" element={<AccountingPreview />} />
             <Route path="/preview/roles" element={<UserRolesPreview />} />
           </Routes>
+          <DebugInfo />
         </Router>
       </SubscriptionProvider>
     </UserProvider>

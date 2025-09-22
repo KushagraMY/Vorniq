@@ -71,13 +71,32 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (user && user.email) {
+      console.log('useSubscription: User detected:', user);
+      
       // Check if this is a demo user
       if (user.id === 'demo-user-123') {
+        console.log('useSubscription: Demo user detected');
         const demoSubscription = localStorage.getItem('vorniq_demo_subscription');
+        console.log('useSubscription: Demo subscription data:', demoSubscription);
+        
         if (demoSubscription) {
           const demoData = JSON.parse(demoSubscription);
+          console.log('useSubscription: Setting demo subscription:', demoData);
           setHasActiveSubscription(demoData.hasActiveSubscription);
           setSubscribedServices(demoData.subscribedServices);
+          setIsLoading(false);
+          return;
+        } else {
+          console.log('useSubscription: No demo subscription found, creating default');
+          // Create default demo subscription if not found
+          const defaultDemoData = {
+            hasActiveSubscription: true,
+            subscribedServices: [1, 2, 3, 4, 5, 6],
+            isDemo: true
+          };
+          localStorage.setItem('vorniq_demo_subscription', JSON.stringify(defaultDemoData));
+          setHasActiveSubscription(true);
+          setSubscribedServices([1, 2, 3, 4, 5, 6]);
           setIsLoading(false);
           return;
         }

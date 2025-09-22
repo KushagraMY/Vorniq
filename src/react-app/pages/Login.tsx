@@ -107,12 +107,15 @@ export default function Login() {
   };
 
   const handleDemoLogin = () => {
+    console.log('Demo login clicked');
     const demoUser = {
       email: 'demo@vorniq.com',
       name: 'Demo User',
       id: 'demo-user-123',
       photoURL: ''
     };
+    
+    console.log('Setting up demo user:', demoUser);
     
     // Store demo user with subscription access
     localStorage.setItem('vorniq_user', JSON.stringify(demoUser));
@@ -122,8 +125,16 @@ export default function Login() {
       isDemo: true
     }));
     
+    console.log('Demo subscription data stored');
+    console.log('Calling login function...');
+    
     login(demoUser);
-    window.location.href = '/';
+    
+    // Add a small delay to ensure state is updated
+    setTimeout(() => {
+      console.log('Redirecting to home page...');
+      window.location.href = '/';
+    }, 100);
   };
 
   return (
