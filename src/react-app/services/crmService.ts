@@ -82,6 +82,18 @@ class CRMService {
   // Get CRM dashboard statistics
   async getCRMStats(): Promise<CRMStats> {
     try {
+      // Check if Supabase is properly configured
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      if (!supabaseUrl || supabaseUrl.includes('placeholder')) {
+        console.warn('Supabase not configured, returning demo CRM stats');
+        return {
+          totalCustomers: 150,
+          activeLeads: 45,
+          pendingFollowups: 12,
+          conversionRate: 0.75
+        };
+      }
+
       // Get total customers
       const { data: customersData, error: customersError } = await supabase
         .from('customers')

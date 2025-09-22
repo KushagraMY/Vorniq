@@ -137,6 +137,18 @@ class HRMService {
   // Get HRM dashboard statistics
   async getHRMStats(): Promise<HRMStats> {
     try {
+      // Check if Supabase is properly configured
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      if (!supabaseUrl || supabaseUrl.includes('placeholder')) {
+        console.warn('Supabase not configured, returning demo HRM stats');
+        return {
+          totalEmployees: 25,
+          presentToday: 22,
+          pendingLeaves: 3,
+          openPositions: 5
+        };
+      }
+
       // Get total employees
       const { data: employeesData, error: employeesError } = await supabase
         .from('employees')
@@ -604,6 +616,58 @@ class HRMService {
   // Get recent hires (employees hired in last 30 days)
   async getRecentHires(): Promise<Employee[]> {
     try {
+      // Check if Supabase is properly configured
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      if (!supabaseUrl || supabaseUrl.includes('placeholder')) {
+        console.warn('Supabase not configured, returning demo recent hires');
+        return [
+          {
+            id: 1,
+            employee_id: 'EMP001',
+            first_name: 'John',
+            last_name: 'Doe',
+            email: 'john.doe@company.com',
+            phone: '+1234567890',
+            date_of_birth: '1990-01-15',
+            hire_date: '2024-01-15',
+            department: 'Engineering',
+            position: 'Software Developer',
+            salary: 75000,
+            employment_type: 'Full-time',
+            status: 'active',
+            manager_id: 2,
+            address: '123 Main St, City, State',
+            emergency_contact_name: 'Jane Doe',
+            emergency_contact_phone: '+1234567891',
+            photo_url: '',
+            created_at: '2024-01-15T00:00:00Z',
+            updated_at: '2024-01-15T00:00:00Z'
+          },
+          {
+            id: 2,
+            employee_id: 'EMP002',
+            first_name: 'Sarah',
+            last_name: 'Smith',
+            email: 'sarah.smith@company.com',
+            phone: '+1234567892',
+            date_of_birth: '1988-05-20',
+            hire_date: '2024-01-20',
+            department: 'Marketing',
+            position: 'Marketing Manager',
+            salary: 65000,
+            employment_type: 'Full-time',
+            status: 'active',
+            manager_id: 3,
+            address: '456 Oak Ave, City, State',
+            emergency_contact_name: 'Mike Smith',
+            emergency_contact_phone: '+1234567893',
+            photo_url: '',
+            created_at: '2024-01-20T00:00:00Z',
+            updated_at: '2024-01-20T00:00:00Z'
+          }
+        ];
+      }
+
       const thirtyDaysAgo = new Date();
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
       
@@ -625,6 +689,50 @@ class HRMService {
   // Get upcoming performance reviews
   async getUpcomingReviews(): Promise<PerformanceReview[]> {
     try {
+      // Check if Supabase is properly configured
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      if (!supabaseUrl || supabaseUrl.includes('placeholder')) {
+        console.warn('Supabase not configured, returning demo upcoming reviews');
+        return [
+          {
+            id: 1,
+            employee_id: 1,
+            review_period_start: '2024-02-01',
+            review_period_end: '2024-02-28',
+            reviewer_id: 2,
+            status: 'draft',
+            goals_achieved: 'Successfully delivered Q1 objectives',
+            areas_improvement: 'Time management, technical documentation',
+            strengths: 'Strong technical skills and team collaboration',
+            overall_rating: 4,
+            performance_score: 4.2,
+            salary_recommendation: 80000,
+            promotion_eligible: true,
+            completed_at: '2024-02-28T00:00:00Z',
+            created_at: '2024-01-15T00:00:00Z',
+            updated_at: '2024-01-15T00:00:00Z'
+          },
+          {
+            id: 2,
+            employee_id: 2,
+            review_period_start: '2024-02-15',
+            review_period_end: '2024-03-15',
+            reviewer_id: 3,
+            status: 'draft',
+            goals_achieved: 'Launched successful product campaign',
+            areas_improvement: 'Budget management, team leadership',
+            strengths: 'Excellent leadership and strategic thinking',
+            overall_rating: 4.5,
+            performance_score: 4.7,
+            salary_recommendation: 70000,
+            promotion_eligible: true,
+            completed_at: '2024-03-15T00:00:00Z',
+            created_at: '2024-01-20T00:00:00Z',
+            updated_at: '2024-01-20T00:00:00Z'
+          }
+        ];
+      }
+
       const today = new Date().toISOString().split('T')[0];
       const nextMonth = new Date();
       nextMonth.setMonth(nextMonth.getMonth() + 1);

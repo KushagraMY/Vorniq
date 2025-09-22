@@ -188,6 +188,18 @@ class SIMService {
   // Get SIM dashboard statistics
   async getSIMStats(): Promise<SIMStats> {
     try {
+      // Check if Supabase is properly configured
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      if (!supabaseUrl || supabaseUrl.includes('placeholder')) {
+        console.warn('Supabase not configured, returning demo SIM stats');
+        return {
+          totalProducts: 85,
+          lowStockCount: 12,
+          monthlyRevenue: 75000,
+          pendingOrdersCount: 8
+        };
+      }
+
       console.log('Fetching SIM stats...');
       
       // Get current month date range

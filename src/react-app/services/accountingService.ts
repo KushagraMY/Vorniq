@@ -117,6 +117,18 @@ class AccountingService {
   // Get accounting dashboard stats
   async getAccountingStats(): Promise<AccountingStats> {
     try {
+      // Check if Supabase is properly configured
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      if (!supabaseUrl || supabaseUrl.includes('placeholder')) {
+        console.warn('Supabase not configured, returning demo accounting stats');
+        return {
+          totalIncome: 150000,
+          totalExpenses: 85000,
+          netProfit: 65000,
+          pendingPayments: 12000
+        };
+      }
+
       // Get total income from revenue table
       const { data: revenueData, error: revenueError } = await supabase
         .from('revenue')
