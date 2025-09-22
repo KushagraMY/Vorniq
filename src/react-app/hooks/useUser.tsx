@@ -1,4 +1,6 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { onAuthStateChanged, signOut } from 'firebase/auth';
+import { auth } from '@/react-app/firebaseConfig';
 
 interface User {
   id: string;
@@ -21,11 +23,26 @@ export function UserProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const stored = localStorage.getItem('vorniq_user');
-    if (stored) {
-      setUser(JSON.parse(stored));
-    }
-    setIsLoading(false);
+    // Listen for Firebase auth state changes
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+      if (firebaseUser) {
+        const userObj = {
+          id: firebaseUser.uid,
+          email: firebaseUser.email || '',
+          name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User',
+          photoURL: firebaseUser.photoURL || ''
+        };
+        setUser(userObj);
+        localStorage.setItem('vorniq_user', JSON.stringify(userObj));
+      } else {
+        setUser(null);
+        localStorage.removeItem('vorniq_user');
+      }
+      setIsLoading(false);
+    });
+
+    // Cleanup subscription on unmount
+    return () => unsubscribe();
   }, []);
 
   const login = (user: User) => {
@@ -33,7 +50,12 @@ export function UserProvider({ children }: { children: ReactNode }) {
     localStorage.setItem('vorniq_user', JSON.stringify(user));
   };
 
-  const logout = () => {
+  const logout = async () => {
+    try {
+      await signOut(auth);
+    } catch (error) {
+      console.error('Error signing out:', error);
+    }
     setUser(null);
     localStorage.removeItem('vorniq_user');
     window.location.href = '/';

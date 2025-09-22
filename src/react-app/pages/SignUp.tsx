@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { initializeApp } from 'firebase/app';
-import { getAuth, createUserWithEmailAndPassword, signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
+import { createUserWithEmailAndPassword, signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
+import { auth } from '@/react-app/firebaseConfig';
 import { useUser } from '@/react-app/hooks/useUser';
 
 function GoogleIcon() {
@@ -17,19 +17,6 @@ function GoogleIcon() {
   );
 }
 
-// Firebase config (reuse from Login.tsx)
-const firebaseConfig = {
-  apiKey: "AIzaSyAOOure2BVrVGR7EelJvVpMkSvx98Khmw0",
-  authDomain: "vorniq-a671c.firebaseapp.com",
-  projectId: "vorniq-a671c",
-  storageBucket: "vorniq-a671c.appspot.com",
-  messagingSenderId: "107779121214",
-  appId: "1:107779121214:web:757aae71cfd0db46e1716f",
-  measurementId: "G-4SHKL9KK2Q"
-};
-
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
 const provider = new GoogleAuthProvider();
 
 export default function SignUp() {
@@ -46,19 +33,42 @@ export default function SignUp() {
     e.preventDefault();
     setLoading(true);
     setError('');
+    
     try {
       const result = await createUserWithEmailAndPassword(auth, form.email, form.password);
       const user = result.user;
-      localStorage.setItem('vorniq_user', JSON.stringify({
-        email: user.email,
-        name: user.displayName,
+      
+      const userObj = {
+        email: user.email || '',
+        name: user.displayName || user.email?.split('@')[0] || 'User',
         id: user.uid,
-        photoURL: user.photoURL
-      }));
+        photoURL: user.photoURL || ''
+      };
+      
+      login(userObj);
       window.location.href = '/';
-    } catch {
-      setError('Sign up failed. Please try again.');
+    } catch (error: any) {
+      console.error('Sign up error:', error);
+      
+      // Handle specific Firebase auth errors
+      switch (error.code) {
+        case 'auth/email-already-in-use':
+          setError('An account with this email already exists. Please login instead.');
+          break;
+        case 'auth/invalid-email':
+          setError('Invalid email address.');
+          break;
+        case 'auth/weak-password':
+          setError('Password should be at least 6 characters long.');
+          break;
+        case 'auth/operation-not-allowed':
+          setError('Email/password accounts are not enabled. Please contact support.');
+          break;
+        default:
+          setError('Sign up failed. Please try again.');
+      }
     }
+    
     setLoading(false);
   };
 

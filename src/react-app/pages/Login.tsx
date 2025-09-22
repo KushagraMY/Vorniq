@@ -1,7 +1,7 @@
 import { useState } from 'react';
 // Firebase imports
-import { initializeApp } from 'firebase/app';
-import { getAuth, signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
+import { signInWithPopup, GoogleAuthProvider, signInWithEmailAndPassword } from 'firebase/auth';
+import { auth } from '@/react-app/firebaseConfig';
 import { useUser } from '@/react-app/hooks/useUser';
 
 function GoogleIcon() {
@@ -18,19 +18,6 @@ function GoogleIcon() {
   );
 }
 
-// Firebase config (replace with your own project config)
-const firebaseConfig = {
-  apiKey: "AIzaSyAOOure2BVrVGR7EelJvVpMkSvx98Khmw0",
-  authDomain: "vorniq-a671c.firebaseapp.com",
-  projectId: "vorniq-a671c",
-  storageBucket: "vorniq-a671c.appspot.com",
-  messagingSenderId: "107779121214",
-  appId: "1:107779121214:web:757aae71cfd0db46e1716f",
-  measurementId: "G-4SHKL9KK2Q"
-};
-
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
 const provider = new GoogleAuthProvider();
 
 export default function Login() {
@@ -47,13 +34,46 @@ export default function Login() {
     e.preventDefault();
     setLoading(true);
     setError('');
-    // TODO: Replace with real API call
-    if (form.email === 'demo@vorniq.com' && form.password === 'password') {
-      login({ email: form.email, name: 'Demo User', id: 'demo123', photoURL: '' });
+    
+    try {
+      // Use Firebase email/password authentication
+      const result = await signInWithEmailAndPassword(auth, form.email, form.password);
+      const user = result.user;
+      
+      const userObj = {
+        email: user.email || '',
+        name: user.displayName || user.email?.split('@')[0] || 'User',
+        id: user.uid,
+        photoURL: user.photoURL || ''
+      };
+      
+      login(userObj);
       window.location.href = '/';
-    } else {
-      setError('Invalid email or password');
+    } catch (error: any) {
+      console.error('Login error:', error);
+      
+      // Handle specific Firebase auth errors
+      switch (error.code) {
+        case 'auth/user-not-found':
+          setError('No account found with this email address.');
+          break;
+        case 'auth/wrong-password':
+          setError('Incorrect password. Please try again.');
+          break;
+        case 'auth/invalid-email':
+          setError('Invalid email address.');
+          break;
+        case 'auth/user-disabled':
+          setError('This account has been disabled.');
+          break;
+        case 'auth/too-many-requests':
+          setError('Too many failed attempts. Please try again later.');
+          break;
+        default:
+          setError('Login failed. Please check your credentials and try again.');
+      }
     }
+    
     setLoading(false);
   };
 
