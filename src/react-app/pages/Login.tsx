@@ -113,6 +113,15 @@ export default function Login() {
       id: 'demo-user-123',
       photoURL: ''
     };
+    
+    // Store demo user with subscription access
+    localStorage.setItem('vorniq_user', JSON.stringify(demoUser));
+    localStorage.setItem('vorniq_demo_subscription', JSON.stringify({
+      hasActiveSubscription: true,
+      subscribedServices: [1, 2, 3, 4, 5, 6], // All services
+      isDemo: true
+    }));
+    
     login(demoUser);
     window.location.href = '/';
   };

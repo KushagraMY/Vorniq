@@ -71,6 +71,17 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (user && user.email) {
+      // Check if this is a demo user
+      if (user.id === 'demo-user-123') {
+        const demoSubscription = localStorage.getItem('vorniq_demo_subscription');
+        if (demoSubscription) {
+          const demoData = JSON.parse(demoSubscription);
+          setHasActiveSubscription(demoData.hasActiveSubscription);
+          setSubscribedServices(demoData.subscribedServices);
+          setIsLoading(false);
+          return;
+        }
+      }
       checkSubscriptionStatus();
     }
   }, [user]);
